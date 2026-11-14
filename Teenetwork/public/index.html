@@ -128,8 +128,8 @@
 
             <button onclick="toggleTheme()" class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-egyptian-50 dark:hover:bg-egyptian-950/40 hover:text-egyptian-700 dark:hover:text-egyptian-300 transition flex items-center justify-between">
               <span class="flex items-center gap-2.5">
-                <span>🌓</span>
-                <span>Toggle Dark / Light Mode</span>
+                <span id="themeModeIcon">🌓</span>
+                <span id="themeModeText">Toggle Dark / Light Mode</span>
               </span>
             </button>
           </div>
@@ -617,9 +617,6 @@
         flash("Notification message copied to clipboard!");
       }
     }
-      if (!r.ok) throw new Error(d.error || `Server responded with ${r.status}`);
-      return d;
-    }
 
     /* Toast Flash */
     function flash(successMsg, errorMsg) {
@@ -652,28 +649,33 @@
 
     /* Theme Toggle */
     function initTheme() {
-      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      const isDark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (isDark) {
         document.documentElement.classList.add('dark');
-        $("moonIcon").classList.add("hidden");
-        $("sunIcon").classList.remove("hidden");
       } else {
         document.documentElement.classList.remove('dark');
-        $("moonIcon").classList.remove("hidden");
-        $("sunIcon").classList.add("hidden");
       }
+      updateThemeUI(isDark);
     }
+
     function toggleTheme() {
-      if (document.documentElement.classList.contains('dark')) {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
         document.documentElement.classList.remove('dark');
         localStorage.theme = 'light';
-        $("moonIcon").classList.remove("hidden");
-        $("sunIcon").classList.add("hidden");
+        updateThemeUI(false);
       } else {
         document.documentElement.classList.add('dark');
         localStorage.theme = 'dark';
-        $("moonIcon").classList.add("hidden");
-        $("sunIcon").classList.remove("hidden");
+        updateThemeUI(true);
       }
+    }
+
+    function updateThemeUI(isDark) {
+      const icon = $("themeModeIcon");
+      const text = $("themeModeText");
+      if (icon) icon.textContent = isDark ? "☀️" : "🌙";
+      if (text) text.textContent = isDark ? "Switch to Light Mode" : "Switch to Dark Mode";
     }
 
     /* Hamburger Menu Toggle (Extreme Right) */
@@ -708,76 +710,83 @@
 
     /* Boot & Data Fetching */
     async function boot() {
-      initTheme();
-      loadSavedAccounts();
-
       try {
-        me = await api("GET", "/api/me");
-      } catch {
-        me = null;
-      }
-
-      // If session cookie failed or was cleared, try to auto-restore from saved device accounts!
-      if (!me && savedAccounts.length > 0) {
-        const lastActiveId = localStorage.getItem("tn_last_active_account");
-        const candidate = (lastActiveId && savedAccounts.find(a => a.id == lastActiveId)) || savedAccounts[0];
-        if (candidate && candidate.token) {
-          try {
-            localStorage.setItem("tn_active_token", candidate.token);
-            const sw = await api("POST", "/api/switch-account", { token: candidate.token });
-            if (sw && sw.token) localStorage.setItem("tn_active_token", sw.token);
-            me = await api("GET", "/api/me");
-          } catch {
-            // Token expired or invalid
-          }
-        }
-      }
-
-      const roleBadge = $("roleBadge");
-      const hamburger = $("hamburgerBtn");
-
-      if (me) {
-        if (me.token) {
-          localStorage.setItem("tn_active_token", me.token);
-        }
-        localStorage.setItem("tn_last_active_account", me.id);
-        saveAccountToDevice({
-          id: me.id,
-          name: me.name,
-          email: me.email,
-          is_admin: me.is_admin,
-          token: me.token || savedAccounts.find(a => a.id === me.id)?.token
-        });
-
-        hamburger.classList.remove("hidden");
-        roleBadge.classList.remove("hidden");
-        roleBadge.textContent = me.is_admin ? "Administrator" : "Member";
-
-        $("drawerUserName").textContent = me.name;
-        $("drawerUserEmail").textContent = me.email;
-        $("drawerUserAvatar").textContent = (me.name || "U")[0].toUpperCase();
-        $("drawerUserRoleBadge").textContent = me.is_admin ? "Admin" : "Member";
+        initTheme();
+        loadSavedAccounts();
 
         try {
-          const d = await api("GET", "/api/data");
-          centers = d.centers || [];
-          schools = d.schools || [];
-          userSchools = d.user_schools || d.schools || [];
-          reports = d.reports || [];
-          profiles = d.users || [];
-          stats = d.stats || {};
-        } catch (e) {
-          flash("", "Failed to load dashboard data: " + e.message);
+          me = await api("GET", "/api/me");
+        } catch {
+          me = null;
         }
 
-        renderDrawerAccountsList();
-      } else {
-        hamburger.classList.add("hidden");
-        roleBadge.classList.add("hidden");
-        $("sideMenuDrawer").classList.add("hidden");
-      }
+        // If session cookie failed or was cleared, try to auto-restore from saved device accounts!
+        if (!me && savedAccounts.length > 0) {
+          const lastActiveId = localStorage.getItem("tn_last_active_account");
+          const candidate = (lastActiveId && savedAccounts.find(a => a.id == lastActiveId)) || savedAccounts[0];
+          if (candidate && candidate.token) {
+            try {
+              localStorage.setItem("tn_active_token", candidate.token);
+              const sw = await api("POST", "/api/switch-account", { token: candidate.token });
+              if (sw && sw.token) localStorage.setItem("tn_active_token", sw.token);
+              me = await api("GET", "/api/me");
+            } catch {
+              // Token expired or invalid
+            }
+          }
+        }
 
-      render();
+        const roleBadge = $("roleBadge");
+        const hamburger = $("hamburgerBtn");
+        const drawer = $("sideMenuDrawer");
+
+        if (me) {
+          if (me.token) {
+            localStorage.setItem("tn_active_token", me.token);
+          }
+          localStorage.setItem("tn_last_active_account", me.id);
+          saveAccountToDevice({
+            id: me.id,
+            name: me.name,
+            email: me.email,
+            is_admin: me.is_admin,
+            token: me.token || savedAccounts.find(a => a.id === me.id)?.token
+          });
+
+          if (hamburger) hamburger.classList.remove("hidden");
+          if (roleBadge) {
+            roleBadge.classList.remove("hidden");
+            roleBadge.textContent = me.is_admin ? "Administrator" : "Member";
+          }
+
+          if ($("drawerUserName")) $("drawerUserName").textContent = me.name || "";
+          if ($("drawerUserEmail")) $("drawerUserEmail").textContent = me.email || "";
+          if ($("drawerUserAvatar")) $("drawerUserAvatar").textContent = (me.name || "U")[0].toUpperCase();
+          if ($("drawerUserRoleBadge")) $("drawerUserRoleBadge").textContent = me.is_admin ? "Admin" : "Member";
+
+          try {
+            const d = await api("GET", "/api/data");
+            centers = d.centers || [];
+            schools = d.schools || [];
+            userSchools = d.user_schools || d.schools || [];
+            reports = d.reports || [];
+            profiles = d.users || [];
+            stats = d.stats || {};
+          } catch (e) {
+            console.error("Failed to load dashboard data:", e);
+          }
+
+          renderDrawerAccountsList();
+        } else {
+          if (hamburger) hamburger.classList.add("hidden");
+          if (roleBadge) roleBadge.classList.add("hidden");
+          if (drawer) drawer.classList.add("hidden");
+        }
+      } catch (err) {
+        console.error("Boot error:", err);
+      } finally {
+        render();
+      }
     }
 
     /* Render Multi-Account in Drawer */
