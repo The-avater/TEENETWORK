@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEENETWORK Session Reports</title>
+<style>
+:root{--bg:#f6f7f4;--card:#fff;--tx:#1d2b24;--mu:#5f6f66;--ac:#1f7a4d;--acx:#fff;--bd:#d9dfd9;--dn:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#141a17;--card:#1c2420;--tx:#eaf1ec;--mu:#9baba1;--ac:#4cc38a;--acx:#0d1f16;--bd:#2f3b35;--dn:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:820px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:8px 0}h2{font-size:1.1rem;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:16px}
+label{display:block;font-weight:600;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:12px;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px}
+textarea{min-height:90px}
+button{font:inherit;font-weight:600;padding:12px 18px;border-radius:10px;border:0;background:var(--ac);color:var(--acx);cursor:pointer;margin-top:14px}
+button.sec{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+button.del{background:transparent;color:var(--dn);border:1px solid var(--bd);padding:6px 10px;margin:6px 0 0}
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}.tabs button{margin:0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--bd)}
+.mu{color:var(--mu);font-size:.9rem}.ok{color:var(--ac);font-weight:600}.er{color:var(--dn);font-weight:600}
+.rep{border-top:1px solid var(--bd);padding:12px 0}.rep p{margin:4px 0}
+.top{display:flex;justify-content:space-between;align-items:center}
+</style></head><body><main>
+<div class="top"><h1>TEENETWORK</h1><button class="sec" id="out" style="display:none;margin:0" onclick="api('POST','/api/logout').then(boot)">Log out</button></div>
+<div id="app" class="mu">Loading…</div></main>
+<script>
+async function api(m,u,b){const r=await fetch(u,{method:m,headers:{"Content-Type":"application/json"},body:b?JSON.stringify(b):undefined});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||"Error");return d}
+let me=null,centers=[],profiles=[],reports=[],tab="reports",fc="",mode="login",msg="",err="";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cName=id=>(centers.find(c=>c.id===id)||{}).name||"Unknown centre";
+
+async function boot(){
+  try{me=await api("GET","/api/me")}catch{me=null}
+  $("out").style.display=me?"":"none";
+  if(me){const d=await api("GET","/api/data");centers=d.centers;reports=d.reports;profiles=d.users}
+  render();
+}
+boot();
+function render(){
+  const a=$("app");a.className="";
+  const note=(msg?`<p class="ok">${msg}</p>`:"")+(err?`<p class="er">${esc(err)}</p>`:"");
+  a.innerHTML=note+(!me?authView():me.is_admin?adminView():memberView());
+}
+function flash(m,e){msg=m||"";err=e||"";render();setTimeout(()=>{msg="";err="";render()},4000)}
+
+/* ---- Login / Sign up ---- */
+function authView(){
+  const s=mode==="signup";
+  return `<div class="card"><h2>${s?"Create your account":"Log in"}</h2>
+  ${s?'<label for="nm">Full name</label><input id="nm" autocomplete="name">':""}
+  <label for="em">Email</label><input id="em" type="email" autocomplete="email">
+  <label for="pw">Password</label><input id="pw" type="password" autocomplete="${s?"new-password":"current-password"}" placeholder="At least 6 characters">
+  <button onclick="${s?"signUp()":"logIn()"}">${s?"Sign up":"Log in"}</button>
+  <button class="sec" onclick="mode='${s?"login":"signup"}';msg='';err='';render()">${s?"I already have an account":"Create an account"}</button></div>`;
+}
+async function signUp(){try{await api("POST","/api/signup",{name:$("nm").value,email:$("em").value,password:$("pw").value});await boot()}catch(e){flash("",e.message)}}
+async function logIn(){try{await api("POST","/api/login",{email:$("em").value,password:$("pw").value});await boot()}catch(e){flash("",e.message)}}
+
+/* ---- Admin ---- */
+function adminView(){
+  let h=`<div class="tabs">${[["reports","All reports"],["centers","Centres"],["members","Members"]].map(([k,l])=>`<button class="${tab===k?"":"sec"}" onclick="tab='${k}';render()">${l}</button>`).join("")}</div>`;
+  if(tab==="centers")h+=`<div class="card"><h2>Add a centre</h2><label for="cn">Centre name</label><input id="cn"><button onclick="addCenter()">Add centre</button></div>
+   <div class="card"><h2>Centres (${centers.length})</h2>${centers.map(c=>`<div class="row"><span>${esc(c.name)}</span><button class="del" onclick="delRow('centers','${c.id}')">Remove</button></div>`).join("")||'<p class="mu">No centres yet.</p>'}</div>`;
+  else if(tab==="members"){const w=profiles.filter(p=>!p.center_id&&!p.is_admin).length;
+   h+=`<div class="card"><h2>Members (${profiles.length})</h2><p class="mu">${w?w+" waiting to be added. ":""}Choose a centre next to each name.</p>${profiles.map(p=>`<div class="row"><span>${esc(p.name||"No name")}${p.is_admin?" (admin)":""}<br><span class="mu">${p.center_id?esc(cName(p.center_id)):"Waiting for approval"}</span></span>${p.is_admin?"":`<select style="width:auto;max-width:50%" onchange="assign('${p.id}',this.value)"><option value="">Not assigned</option>${centers.map(c=>`<option value="${c.id}" ${p.center_id===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}</select>`}</div>`).join("")}</div>`}
+  else h+=`<div class="card"><h2>All reports</h2><select onchange="fc=this.value;render()"><option value="">All centres</option>${centers.map(c=>`<option value="${c.id}" ${fc===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}</select><button class="sec" onclick="exportCsv()">Download spreadsheet</button>${repList(reports.filter(r=>!fc||r.center_id===fc))}</div>`;
+  return h;
+}
+async function addCenter(){const n=$("cn").value.trim();if(!n)return;try{await api("POST","/api/centers",{name:n});boot()}catch(e){flash("",e.message)}}
+async function assign(id,c){if(document.activeElement)document.activeElement.blur();try{await api("PUT","/api/users/"+id+"/center",{center_id:c||null});boot()}catch(e){flash("",e.message)}}
+async function delRow(t,id){if(!confirm("Are you sure?"))return;try{await api("DELETE","/api/"+t+"/"+id);boot()}catch(e){flash("",e.message)}}
+function exportCsv(){
+  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const rows=[["Centre","Member","School","Date","Members in attendance","Session details","Students present","Remarks","Challenges"]];
+  reports.filter(r=>!fc||r.center_id===fc).forEach(r=>rows.push([cName(r.center_id),r.member_name,r.school,r.date,r.attendance,r.details,r.students,r.remarks,r.challenges]));
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(q).join(",")).join("\n")],{type:"text/csv"}));a.download="teenetwork-reports.csv";a.click();
+}
+function repList(list){
+  if(!list.length)return '<p class="mu">No reports yet.</p>';
+  return list.map(r=>`<div class="rep"><b>${esc(r.school)} · ${esc(r.date)}</b><br><span class="mu">${esc(cName(r.center_id))} · by ${esc(r.member_name)}</span>
+  <p><b>Members in attendance:</b> ${esc(r.attendance)}</p><p><b>Students present:</b> ${esc(r.students)}</p><p><b>Session details:</b> ${esc(r.details)}</p>
+  ${r.remarks?`<p><b>Remarks:</b> ${esc(r.remarks)}</p>`:""}${r.challenges?`<p><b>Challenges:</b> ${esc(r.challenges)}</p>`:""}
+  ${me.is_admin||r.member_id===me.id?`<button class="del" onclick="delRow('reports','${r.id}')">Delete</button>`:""}</div>`).join("");
+}
+
+/* ---- Member ---- */
+function memberView(){
+  if(!me.center_id)return `<div class="card"><h2>Thanks, ${esc(me.name)}!</h2><p>Your account is created. Please wait for the admin to add you to a centre, then log in again.</p></div>`;
+  return `<p class="mu">${esc(me.name)} · ${esc(cName(me.center_id))}</p>
+  <div class="card"><h2>New session report</h2>
+  <label for="f1">Name of school</label><input id="f1">
+  <label for="f2">Date</label><input id="f2" type="date" value="${new Date().toISOString().slice(0,10)}">
+  <label for="f3">Members in attendance</label><input id="f3" placeholder="e.g. Ada, Tunde">
+  <label for="f4">Session details</label><textarea id="f4"></textarea>
+  <label for="f5">Number of students present</label><input id="f5" type="number" min="0" inputmode="numeric">
+  <label for="f6">Remarks</label><textarea id="f6"></textarea>
+  <label for="f7">Challenges</label><textarea id="f7"></textarea>
+  <button onclick="submitReport()">Submit report</button></div>
+  <div class="card"><h2>Reports from your centre</h2>${repList(reports)}</div>`;
+}
+async function submitReport(){
+  const v=i=>$("f"+i).value.trim();
+  try{await api("POST","/api/reports",{school:v(1),date:v(2),attendance:v(3),details:v(4),students:v(5),remarks:v(6),challenges:v(7)});await boot();flash("Report submitted. Thank you!")}catch(e){flash("",e.message)}
+}
+</script></body></html>
