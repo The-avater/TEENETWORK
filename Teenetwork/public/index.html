@@ -180,26 +180,19 @@
         <p class="text-xs text-slate-500 mt-1">Please select an action below:</p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <!-- Option 1: Report -->
-        <button onclick="proceedToSchoolReport()" class="p-4 rounded-2xl border-2 border-egyptian-600 bg-egyptian-50/50 dark:bg-egyptian-950/40 hover:bg-egyptian-100 dark:hover:bg-egyptian-900/60 transition text-center group">
-          <div class="text-2xl mb-1 group-hover:scale-110 transition-transform">📋</div>
-          <h4 class="font-black text-xs sm:text-sm text-egyptian-900 dark:text-egyptian-100">Write Report</h4>
-          <p class="text-[10px] text-egyptian-700 dark:text-egyptian-300 mt-0.5">Log session for this school</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <!-- Option 1: Reports -->
+        <button onclick="proceedToSchoolReport()" class="p-5 rounded-2xl border-2 border-egyptian-600 bg-egyptian-50/60 dark:bg-egyptian-950/40 hover:bg-egyptian-100 dark:hover:bg-egyptian-900/60 transition text-center group shadow-sm">
+          <div class="text-3xl mb-1.5 group-hover:scale-110 transition-transform">📋</div>
+          <h4 class="font-black text-sm text-egyptian-900 dark:text-egyptian-100">Reports</h4>
+          <p class="text-[11px] text-egyptian-700 dark:text-egyptian-300 mt-0.5 font-medium">View and submit outreach reports</p>
         </button>
 
         <!-- Option 2: Contact Details -->
-        <button onclick="openSchoolContactDetails()" class="p-4 rounded-2xl border-2 border-slate-200 dark:border-[#1e356d] bg-white dark:bg-[#0a1128]/50 hover:bg-slate-50 dark:hover:bg-[#16254f]/50 transition text-center group">
-          <div class="text-2xl mb-1 group-hover:scale-110 transition-transform">📞</div>
-          <h4 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white">Contact Details</h4>
-          <p class="text-[10px] text-slate-400 mt-0.5">Contact, Phone, Location</p>
-        </button>
-
-        <!-- Option 3: View Previous Reports -->
-        <button onclick="viewSchoolPreviousReports()" class="p-4 rounded-2xl border-2 border-slate-200 dark:border-[#1e356d] bg-white dark:bg-[#0a1128]/50 hover:bg-slate-50 dark:hover:bg-[#16254f]/50 transition text-center group">
-          <div class="text-2xl mb-1 group-hover:scale-110 transition-transform">📚</div>
-          <h4 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white">Previous Reports</h4>
-          <p class="text-[10px] text-slate-400 mt-0.5">All past years & sessions</p>
+        <button onclick="openSchoolContactDetails()" class="p-5 rounded-2xl border-2 border-slate-200 dark:border-[#1e356d] bg-white dark:bg-[#0a1128]/50 hover:bg-slate-50 dark:hover:bg-[#16254f]/50 transition text-center group shadow-sm">
+          <div class="text-3xl mb-1.5 group-hover:scale-110 transition-transform">📞</div>
+          <h4 class="font-black text-sm text-slate-900 dark:text-white">Contact Details</h4>
+          <p class="text-[11px] text-slate-400 mt-0.5 font-medium">Session time, contact person, location</p>
         </button>
       </div>
     </div>
@@ -490,8 +483,19 @@
         </p>
       </div>
 
-      <div id="otpDevNotice" class="hidden mb-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 text-xs">
-        <span class="font-bold">⚡ Development OTP:</span> <span id="otpDevCode" class="font-mono font-bold tracking-widest text-sm"></span>
+      <div id="otpDevNotice" class="hidden mb-4 p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs text-left">
+        <div class="flex items-center justify-between">
+          <span class="font-extrabold uppercase text-[10px] text-amber-700 dark:text-amber-400">Account Activation Code</span>
+          <button type="button" onclick="fillOtpCode()" class="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-200 hover:bg-amber-300 dark:bg-amber-900 dark:hover:bg-amber-800 text-amber-950 dark:text-amber-100 transition">
+            Auto-Fill
+          </button>
+        </div>
+        <div class="font-mono text-xl font-black tracking-widest text-egyptian-700 dark:text-egyptian-300 my-1">
+          <span id="otpDevCode"></span>
+        </div>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400">
+          Enter this 6-digit confirmation code below to verify your account and complete activation.
+        </p>
       </div>
 
       <form onsubmit="event.preventDefault(); verifyLoginOtp();" class="space-y-4">
@@ -1564,12 +1568,12 @@
             </div>
           </div>
 
-          <!-- 3. Previous Reports for Your Assigned Schools (Detailed & Expandable) -->
+          <!-- 3. Reports for Your Assigned Schools (Detailed & Expandable) -->
           <div id="memberReportsHistorySection" class="pt-6 border-t border-slate-200 dark:border-[#1e356d] space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>📚 Previous Reports for Your School(s)</span>
+                  <span>📋 Reports for Your School(s)</span>
                   <span class="text-xs px-2.5 py-0.5 rounded-full bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300 font-bold border border-egyptian-200 dark:border-egyptian-800">
                     ${schoolReports.length} Total Reports
                   </span>
@@ -1725,23 +1729,15 @@
                     </div>`;
                 }
                 if (isPast) {
-                  if (!me.is_admin) {
-                    return `
-                      <div class="p-4 rounded-2xl border-2 border-slate-200 dark:border-[#1e356d] bg-slate-100/60 dark:bg-[#0a1128]/60 text-slate-400 opacity-70 cursor-not-allowed select-none transition">
-                        <div class="flex items-center justify-between">
-                          <span class="font-bold text-sm sm:text-base">${yStr}</span>
-                          <span class="text-xs">🔒</span>
-                        </div>
-                        <span class="block text-[9px] uppercase font-bold text-slate-400 mt-1">Past Year (Closed)</span>
-                      </div>`;
-                  }
                   return `
-                    <button onclick="chooseYear('${yStr}')" class="p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold hover:border-amber-500 transition text-sm sm:text-base">
+                    <button onclick="chooseYear('${yStr}')" class="p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold hover:border-amber-500 hover:scale-[1.02] transition text-sm sm:text-base text-left">
                       <div class="flex items-center justify-between">
-                        <span>${yStr}</span>
-                        <span class="text-xs">🛡️</span>
+                        <span class="font-black">${yStr}</span>
+                        <span class="text-xs">${me.is_admin ? '🛡️' : '📖'}</span>
                       </div>
-                      <span class="block text-[9px] text-amber-700 dark:text-amber-400 mt-0.5 font-bold uppercase">Past Year (Admin)</span>
+                      <span class="block text-[9px] text-amber-700 dark:text-amber-400 mt-1 font-bold uppercase">
+                        ${me.is_admin ? 'Past Year (Admin Editor)' : 'Past Year (View Only)'}
+                      </span>
                     </button>`;
                 }
                 return `
@@ -4549,6 +4545,13 @@
       }
     }
 
+    function fillOtpCode() {
+      if ($("otpInput") && pendingOtpDevCode) {
+        $("otpInput").value = pendingOtpDevCode;
+        $("otpInput").focus();
+      }
+    }
+
     function closeLoginOtpModal() {
       const modal = $("loginOtpModal");
       if (modal) {
@@ -4609,6 +4612,12 @@
         const remember = $("rememberMe") ? $("rememberMe").checked : true;
         if (remember) {
           localStorage.setItem("tn_remembered_email", email);
+        }
+        if (res.require_otp) {
+          btn.disabled = false; btn.textContent = "Create Account";
+          openLoginOtpModal(res.email, res.dev_code);
+          flash("Account created! Please enter the 6-digit confirmation code sent to your email.");
+          return;
         }
         if (res.user && res.token) {
           localStorage.setItem("tn_active_token", res.token);

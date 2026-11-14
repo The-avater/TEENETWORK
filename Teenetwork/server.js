@@ -6,10 +6,13 @@ const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const path = require("path");
 const fs = require("fs");
+const nodemailer = require("nodemailer");
 
-// Load .env automatically if available (Node 20+)
-try { process.loadEnvFile(); } catch {}
-try { process.loadEnvFile(path.join(__dirname, ".env")); } catch {}
+// Load .env automatically (dotenv + Node 20+ loadEnvFile fallback)
+try { require("dotenv").config({ path: path.join(__dirname, ".env") }); } catch {}
+try { require("dotenv").config(); } catch {}
+try { if (process.loadEnvFile) process.loadEnvFile(path.join(__dirname, ".env")); } catch {}
+try { if (process.loadEnvFile) process.loadEnvFile(); } catch {}
 
 const DB = process.env.DATABASE_URL;
 const SECRET = process.env.JWT_SECRET || "teenetwork-dev-secret-key-change-in-prod";
@@ -64,6 +67,92 @@ function isFutureAcademicYear(yearStr) {
   const parsed = parseAcademicYear(yearStr);
   const current = parseAcademicYear(getCurrentAcademicYear());
   return parsed.start > current.start;
+}
+
+/* ---- Email Delivery Subsystem (Gmail / SMTP / Resend) ---- */
+const escHtml = t => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function getEmailTransporter() {
+  const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER;
+  const gmailPass = (process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS || process.env.SMTP_PASS || "").replace(/\s+/g, "");
+
+  if (gmailUser && gmailPass) {
+    return nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: gmailUser,
+        pass: gmailPass
+      }
+    });
+  }
+
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === "true" || Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+  }
+
+  return null;
+}
+
+async function sendMail(to, subject, html) {
+  let deliveryError = null;
+
+  // 1. Try Nodemailer (Gmail SMTP or Custom SMTP)
+  const transporter = getEmailTransporter();
+  if (transporter) {
+    try {
+      const fromAddr = process.env.EMAIL_FROM || process.env.GMAIL_USER || process.env.SMTP_USER || "TEENETWORK <noreply@teenetwork.org>";
+      await transporter.sendMail({
+        from: fromAddr,
+        to,
+        subject,
+        html
+      });
+      console.log(`✅ [Nodemailer] Email successfully sent to ${to} (${subject})`);
+      return { ok: true };
+    } catch (err) {
+      console.error(`⚠️ [Nodemailer] Error sending email to ${to}:`, err.message);
+      deliveryError = err.message;
+    }
+  }
+
+  // 2. Try Resend API if RESEND_API_KEY is configured
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.RESEND_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM || "TEENETWORK <onboarding@resend.dev>",
+          to: [to],
+          subject,
+          html
+        })
+      });
+      if (r.ok) {
+        console.log(`✅ [Resend] Email successfully sent to ${to} (${subject})`);
+        return { ok: true };
+      } else {
+        const errText = await r.text();
+        console.error(`⚠️ [Resend] API error ${r.status}:`, errText);
+        deliveryError = `Resend ${r.status}: ${errText}`;
+      }
+    } catch (e) {
+      console.error(`⚠️ [Resend] Failed to send email to ${to}:`, e.message);
+      deliveryError = e.message;
+    }
+  }
+
+  // 3. Fallback / Local development simulator
+  console.log(`📬 [TEENETWORK EMAIL LOG] Recipient: ${to} | Subject: ${subject}`);
+  return { ok: false, error: deliveryError || "No active mail provider configured (SMTP/Gmail/Resend)" };
 }
 
 const defaultSchools = [
@@ -185,6 +274,8 @@ async function q(sql, p = []) {
       phone: p[4] || "",
       whatsapp: p[5] || p[4] || "",
       bio: "",
+      email_verified: false,
+      first_login_completed: false,
       created_at: now,
       last_active_at: now
     };
@@ -192,9 +283,9 @@ async function q(sql, p = []) {
     saveLocalDb();
     return { rows: [{ id }] };
   }
-  if (s.includes("select id,password_hash from users where email=$1")) {
+  if (s.includes("from users where email=$1")) {
     const user = localDb.users.find(u => u.email.toLowerCase() === p[0].toLowerCase());
-    return { rows: user ? [{ id: user.id, password_hash: user.password_hash, name: user.name, is_admin: user.is_admin }] : [] };
+    return { rows: user ? [{ ...user }] : [] };
   }
   if (s.includes("from users where id=$1")) {
     const user = localDb.users.find(u => u.id === Number(p[0]));
@@ -258,6 +349,16 @@ async function q(sql, p = []) {
   if (s.includes("update users set password_hash=$1, is_admin=true where email=$2")) {
     const user = localDb.users.find(u => u.email.toLowerCase() === p[1].toLowerCase());
     if (user) { user.password_hash = p[0]; user.is_admin = true; saveLocalDb(); }
+    return { rowCount: user ? 1 : 0, rows: [] };
+  }
+  if (s.includes("email_verified=true") || s.includes("first_login_completed=true")) {
+    const target = p[0];
+    const user = localDb.users.find(u => u.id === Number(target) || u.email.toLowerCase() === String(target).toLowerCase());
+    if (user) {
+      user.email_verified = true;
+      user.first_login_completed = true;
+      saveLocalDb();
+    }
     return { rowCount: user ? 1 : 0, rows: [] };
   }
   if (s.includes("update users set last_active_at=now() where id=$1")) {
@@ -659,6 +760,8 @@ async function setup() {
     await q(`alter table reports add column if not exists academic_session text default 'First Term';`).catch(() => {});
     await q(`alter table reports add column if not exists class_level text;`).catch(() => {});
     await q(`alter table users add column if not exists last_active_at timestamptz default now();`).catch(() => {});
+    await q(`alter table users add column if not exists email_verified boolean default false;`).catch(() => {});
+    await q(`alter table users add column if not exists first_login_completed boolean default false;`).catch(() => {});
     await q(`create table if not exists login_otps (
       email text primary key,
       otp_code text not null,
@@ -713,6 +816,14 @@ async function setup() {
       saveLocalDb();
       console.log("Local database user accounts wiped successfully.");
     }
+    (localDb.users || []).forEach(u => {
+      if (u.email_verified === undefined) u.email_verified = false;
+      if (u.first_login_completed === undefined) u.first_login_completed = false;
+      if (ADMIN_EMAILS.includes(u.email.toLowerCase())) {
+        u.is_admin = true;
+      }
+    });
+    saveLocalDb();
   }
 }
 
@@ -819,57 +930,104 @@ app.post("/api/signup", wrap(async (req, res) => {
 
   const isFirstUser = isPostgres
     ? (await q("select count(*) from users")).rows[0].count === "0"
-    : localDb.users.length === 0;
+    : (localDb ? localDb.users.length === 0 : true);
 
   const isAdmin = ADMIN_EMAILS.includes(email) || email === ADMIN_EMAIL || isFirstUser;
 
   const r = await q("insert into users(name,email,password_hash,is_admin,phone,whatsapp) values($1,$2,$3,$4,$5,$6) returning id",
     [name, email, await bcrypt.hash(pw, 10), isAdmin, whatsapp, whatsapp]);
 
-  const token = login(res, r.rows[0].id);
+  const newUserId = r.rows[0].id;
+
+  // Generate 6-digit confirmation code for initial account activation
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  await q("delete from login_otps where email=$1", [email]);
+  await q("insert into login_otps(email, otp_code, expires_at) values($1, $2, now() + interval '10 minutes')", [email, otpCode]);
+
+  // Dispatch confirmation email
+  const mailRes = await sendMail(
+    email,
+    `Your TEENETWORK Confirmation Code: ${otpCode}`,
+    `<div style="font-family: sans-serif; max-width: 500px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px;">
+      <h2 style="color: #1034A6; margin-top: 0;">Welcome to TEENETWORK!</h2>
+      <p>Hello <strong>${escHtml(name)}</strong>,</p>
+      <p>Thank you for creating an account with TEENETWORK. Here is your 6-digit confirmation code to activate your account:</p>
+      <div style="background: #eef4ff; border: 2px dashed #1034A6; border-radius: 12px; padding: 16px; text-align: center; margin: 20px 0;">
+        <span style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #1034A6; font-family: monospace;">${otpCode}</span>
+      </div>
+      <p style="font-size: 12px; color: #64748b;">This code will expire in 10 minutes. You only need to complete this verification once on your initial login.</p>
+    </div>`
+  );
+
+  console.log(`🔐 Initial signup OTP generated for ${email}: ${otpCode} (Mail sent: ${mailRes.ok})`);
+
   res.json({
     ok: true,
-    is_admin: isAdmin,
-    token,
-    user: { id: r.rows[0].id, name, email, is_admin: isAdmin, phone: whatsapp, whatsapp }
+    require_otp: true,
+    email,
+    message: "Account created! A 6-digit confirmation code has been sent to your email to activate your account.",
+    dev_code: mailRes.ok ? undefined : otpCode
   });
 }));
 
 app.post("/api/login", wrap(async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
-  const r = await q("select id,password_hash,name,is_admin,email,phone,whatsapp from users where email=$1", [email]);
+  const r = await q("select id,password_hash,name,is_admin,email,phone,whatsapp,email_verified,first_login_completed from users where email=$1", [email]);
   if (!r.rows[0] || !(await bcrypt.compare(String(req.body.password || ""), r.rows[0].password_hash))) {
     return res.status(400).json({ error: "Wrong email or password." });
   }
 
-  // Generate 6-digit confirmation code
+  const user = r.rows[0];
+
+  // RULE: Prompt for confirmation code upon signing in for the first time ONLY, and not every time login is initiated
+  const hasCompletedFirstLogin = Boolean(user.first_login_completed || user.email_verified);
+
+  if (hasCompletedFirstLogin) {
+    const token = login(res, user.id);
+    return res.json({
+      ok: true,
+      require_otp: false,
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        is_admin: user.is_admin,
+        phone: user.phone,
+        whatsapp: user.whatsapp
+      }
+    });
+  }
+
+  // First-time login: generate 6-digit confirmation code
   const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
   await q("delete from login_otps where email=$1", [email]);
   await q("insert into login_otps(email, otp_code, expires_at) values($1, $2, now() + interval '10 minutes')", [email, otpCode]);
 
   // Send confirmation email
-  await sendMail(
+  const mailRes = await sendMail(
     email,
     `Your TEENETWORK Confirmation Code: ${otpCode}`,
     `<div style="font-family: sans-serif; max-width: 500px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px;">
-      <h2 style="color: #1034A6; margin-top: 0;">TEENETWORK Portal Access</h2>
-      <p>Hello <strong>${escHtml(r.rows[0].name)}</strong>,</p>
-      <p>Here is your 6-digit confirmation code to access the TEENETWORK portal:</p>
+      <h2 style="color: #1034A6; margin-top: 0;">TEENETWORK Portal First-Time Activation</h2>
+      <p>Hello <strong>${escHtml(user.name)}</strong>,</p>
+      <p>Here is your 6-digit confirmation code to activate and access your TEENETWORK portal account:</p>
       <div style="background: #eef4ff; border: 2px dashed #1034A6; border-radius: 12px; padding: 16px; text-align: center; margin: 20px 0;">
         <span style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #1034A6; font-family: monospace;">${otpCode}</span>
       </div>
-      <p style="font-size: 12px; color: #64748b;">This code will expire in 10 minutes. If you did not make this login request, please change your password immediately.</p>
+      <p style="font-size: 12px; color: #64748b;">This code will expire in 10 minutes. This verification is requested upon your initial login only.</p>
     </div>`
   );
 
-  console.log(`🔐 Confirmation OTP sent to ${email}: ${otpCode}`);
+  console.log(`🔐 First-time login OTP generated for ${email}: ${otpCode} (Mail sent: ${mailRes.ok})`);
 
   res.json({
+    ok: true,
     require_otp: true,
     email,
-    message: "A 6-digit confirmation code has been sent to your email.",
-    dev_code: process.env.RESEND_API_KEY ? undefined : otpCode
+    message: "A 6-digit confirmation code has been sent to your email to verify your account.",
+    dev_code: mailRes.ok ? undefined : otpCode
   });
 }));
 
@@ -890,6 +1048,9 @@ app.post("/api/verify-login-otp", wrap(async (req, res) => {
 
   const u = (await q("select id,name,email,center_id,is_admin,phone,whatsapp from users where email=$1", [email])).rows[0];
   if (!u) return res.status(404).json({ error: "User account not found." });
+
+  // Mark account as verified and first login completed so subsequent logins won't require OTP
+  await q("update users set email_verified=true, first_login_completed=true where id=$1", [u.id]);
 
   let isAdmin = Boolean(u.is_admin);
   if (ADMIN_EMAILS.includes(email) && !isAdmin) {
@@ -914,15 +1075,25 @@ app.post("/api/resend-login-otp", wrap(async (req, res) => {
   await q("delete from login_otps where email=$1", [email]);
   await q("insert into login_otps(email, otp_code, expires_at) values($1, $2, now() + interval '10 minutes')", [email, otpCode]);
 
-  await sendMail(email, `Your TEENETWORK Confirmation Code: ${otpCode}`,
-    `<p>Your new TEENETWORK confirmation code is: <strong>${otpCode}</strong> (valid for 10 minutes).</p>`
+  const mailRes = await sendMail(
+    email,
+    `Your TEENETWORK Confirmation Code: ${otpCode}`,
+    `<div style="font-family: sans-serif; max-width: 500px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px;">
+      <h2 style="color: #1034A6; margin-top: 0;">TEENETWORK Confirmation Code</h2>
+      <p>Hello <strong>${escHtml(u.name)}</strong>,</p>
+      <p>Here is your new 6-digit confirmation code:</p>
+      <div style="background: #eef4ff; border: 2px dashed #1034A6; border-radius: 12px; padding: 16px; text-align: center; margin: 20px 0;">
+        <span style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #1034A6; font-family: monospace;">${otpCode}</span>
+      </div>
+      <p style="font-size: 12px; color: #64748b;">This code is valid for 10 minutes.</p>
+    </div>`
   );
 
-  console.log(`🔄 Resent OTP for ${email}: ${otpCode}`);
+  console.log(`🔄 Resent OTP for ${email}: ${otpCode} (Mail sent: ${mailRes.ok})`);
   res.json({
     ok: true,
     message: "A new confirmation code has been sent to your email.",
-    dev_code: process.env.RESEND_API_KEY ? undefined : otpCode
+    dev_code: mailRes.ok ? undefined : otpCode
   });
 }));
 
@@ -2346,24 +2517,6 @@ app.put("/api/users/:id/password", auth, admin, wrap(async (req, res) => {
 
 /* ---- Password Reset via Email ---- */
 const APP_URL = (process.env.APP_URL || "").replace(/\/$/, "");
-const escHtml = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
-async function sendMail(to, subject, html) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("RESEND_API_KEY is not set. Email not sent.");
-    return;
-  }
-  try {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + process.env.RESEND_API_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: process.env.RESEND_FROM || "TEENETWORK <onboarding@resend.dev>", to: [to], subject, html })
-    });
-    if (!r.ok) console.error("Resend error", r.status, await r.text());
-  } catch (e) {
-    console.error("Resend failed", e.message);
-  }
-}
 
 app.set("trust proxy", 1);
 
