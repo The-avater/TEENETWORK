@@ -250,6 +250,11 @@ async function q(sql, p = []) {
     if (user) { user.password_hash = p[0]; saveLocalDb(); }
     return { rowCount: user ? 1 : 0, rows: [] };
   }
+  if (s.includes("update users set is_admin=$1 where id=$2")) {
+    const user = localDb.users.find(u => u.id === Number(p[1]));
+    if (user) { user.is_admin = Boolean(p[0]); saveLocalDb(); }
+    return { rowCount: user ? 1 : 0, rows: [] };
+  }
   if (s.includes("update users set password_hash=$1, is_admin=true where email=$2")) {
     const user = localDb.users.find(u => u.email.toLowerCase() === p[1].toLowerCase());
     if (user) { user.password_hash = p[0]; user.is_admin = true; saveLocalDb(); }
@@ -1330,6 +1335,18 @@ app.put("/api/users/:id/schools", auth, admin, wrap(async (req, res) => {
     await q("insert into user_schools(user_id, school_id) values($1, $2)", [userId, sid]);
   }
   res.json({ ok: true, school_ids: schoolIds });
+}));
+
+app.put("/api/users/:id/role", auth, admin, wrap(async (req, res) => {
+  const userId = Number(req.params.id);
+  const isAdmin = Boolean(req.body.is_admin);
+  const targetUser = (await q("select id, email, name from users where id=$1", [userId])).rows[0];
+  if (!targetUser) return res.status(404).json({ error: "User not found" });
+  if (targetUser.email && targetUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && !isAdmin) {
+    return res.status(400).json({ error: "Cannot revoke superadmin privileges" });
+  }
+  await q("update users set is_admin=$1 where id=$2", [isAdmin, userId]);
+  res.json({ ok: true, is_admin: isAdmin, user: { id: userId, name: targetUser.name, is_admin: isAdmin } });
 }));
 
 /* ---- Report Submission & Editing (With Academic Year Lockout Rule & Term Bounds) ---- */
