@@ -545,7 +545,15 @@
         toggleHamburgerMenu(false);
         await boot();
       } catch (err) {
-        flash("", err.message);
+        if (err.message && (err.message.includes("User not found") || err.message.includes("expired") || err.message.includes("404") || err.message.includes("401"))) {
+          savedAccounts = savedAccounts.filter(a => a.id !== accId);
+          localStorage.setItem("tn_device_accounts", JSON.stringify(savedAccounts));
+          localStorage.removeItem("tn_active_token");
+          render();
+          flash("", "Account no longer exists in database. Please create a fresh account.");
+        } else {
+          flash("", err.message);
+        }
       }
     }
 
@@ -731,7 +739,10 @@
               if (sw && sw.token) localStorage.setItem("tn_active_token", sw.token);
               me = await api("GET", "/api/me");
             } catch {
-              // Token expired or invalid
+              // Token expired or invalid / account wiped from database
+              savedAccounts = savedAccounts.filter(a => a.id !== candidate.id);
+              localStorage.setItem("tn_device_accounts", JSON.stringify(savedAccounts));
+              localStorage.removeItem("tn_active_token");
             }
           }
         }
@@ -2007,7 +2018,15 @@
         closeAddAccountModal();
         await boot();
       } catch (err) {
-        flash("", err.message);
+        if (err.message && (err.message.includes("User not found") || err.message.includes("expired") || err.message.includes("404") || err.message.includes("401"))) {
+          savedAccounts = savedAccounts.filter(a => a.id !== accId);
+          localStorage.setItem("tn_device_accounts", JSON.stringify(savedAccounts));
+          localStorage.removeItem("tn_active_token");
+          render();
+          flash("", "Account no longer exists in database. Please create a fresh account.");
+        } else {
+          flash("", err.message);
+        }
       } finally {
         btn.disabled = false;
         btn.textContent = addAccountMode === "signup" ? "Create & Add Account" : "Log In & Add Account";

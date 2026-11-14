@@ -13,7 +13,11 @@ try { process.loadEnvFile(path.join(__dirname, ".env")); } catch {}
 
 const DB = process.env.DATABASE_URL;
 const SECRET = process.env.JWT_SECRET || "teenetwork-dev-secret-key-change-in-prod";
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "kineromosele@gmail.com").trim().toLowerCase();
+const ADMIN_EMAILS = [
+  "kineromosele@gmail.com",
+  ADMIN_EMAIL
+].filter(Boolean);
 
 let pool = null;
 let isPostgres = Boolean(DB);
@@ -491,6 +495,29 @@ async function setup() {
           [sc.name, sc.center_id, sc.contact_person, sc.phone, sc.email, sc.address]).catch(() => {});
       }
     }
+
+    // One-time requested clearout of all existing registered users:
+    await q(`create table if not exists app_migrations (name text primary key, applied_at timestamptz default now());`).catch(() => {});
+    const clearedRes = await q(`select name from app_migrations where name='wipe_users_20261114'`).catch(() => ({ rows: [] }));
+    if (!clearedRes.rows.length) {
+      console.log("Executing requested one-time wipe of registered accounts...");
+      await q(`delete from password_resets;`).catch(() => {});
+      await q(`delete from user_schools;`).catch(() => {});
+      await q(`delete from user_centers;`).catch(() => {});
+      await q(`delete from users;`).catch(() => {});
+      await q(`insert into app_migrations(name) values('wipe_users_20261114');`).catch(() => {});
+      console.log("All registered user accounts cleared. kineromosele@gmail.com is configured as default administrator.");
+    }
+  } else if (localDb) {
+    if (!localDb.wiped_users_20261114) {
+      localDb.users = [];
+      localDb.user_schools = [];
+      localDb.user_centers = [];
+      localDb.password_resets = [];
+      localDb.wiped_users_20261114 = true;
+      saveLocalDb();
+      console.log("Local database user accounts wiped successfully.");
+    }
   }
 }
 
@@ -598,7 +625,7 @@ app.post("/api/signup", wrap(async (req, res) => {
     ? (await q("select count(*) from users")).rows[0].count === "0"
     : localDb.users.length === 0;
 
-  const isAdmin = email === ADMIN_EMAIL || isFirstUser;
+  const isAdmin = ADMIN_EMAILS.includes(email) || email === ADMIN_EMAIL || isFirstUser;
 
   const r = await q("insert into users(name,email,password_hash,is_admin) values($1,$2,$3,$4) returning id",
     [name, email, await bcrypt.hash(pw, 10), isAdmin]);
@@ -618,11 +645,19 @@ app.post("/api/login", wrap(async (req, res) => {
   if (!r.rows[0] || !(await bcrypt.compare(String(req.body.password || ""), r.rows[0].password_hash))) {
     return res.status(400).json({ error: "Wrong email or password." });
   }
+
+  // Ensure designated admin email always holds administrator privileges
+  let isAdmin = Boolean(r.rows[0].is_admin);
+  if (ADMIN_EMAILS.includes(email) && !isAdmin) {
+    await q("update users set is_admin=true where id=$1", [r.rows[0].id]);
+    isAdmin = true;
+  }
+
   const token = login(res, r.rows[0].id);
   res.json({
     ok: true,
     token,
-    user: { id: r.rows[0].id, name: r.rows[0].name, email, is_admin: r.rows[0].is_admin }
+    user: { id: r.rows[0].id, name: r.rows[0].name, email, is_admin: isAdmin }
   });
 }));
 
