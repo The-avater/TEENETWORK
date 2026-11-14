@@ -24,6 +24,48 @@ let isPostgres = Boolean(DB);
 let localDb = null;
 const localDbFile = path.join(__dirname, "data.json");
 
+/* ---- Academic Year & Term Utilities ---- */
+function parseAcademicYear(yearStr) {
+  if (!yearStr) return { start: 2026, end: 2027, str: "2026/2027" };
+  const str = String(yearStr).trim();
+  const parts = str.split("/");
+  if (parts.length === 2) {
+    const start = parseInt(parts[0], 10);
+    const end = parseInt(parts[1], 10);
+    if (!isNaN(start) && !isNaN(end)) {
+      return { start, end, str: `${start}/${end}` };
+    }
+  }
+  const num = parseInt(str, 10);
+  if (!isNaN(num)) {
+    return { start: num, end: num + 1, str: `${num}/${num + 1}` };
+  }
+  return { start: 2026, end: 2027, str: "2026/2027" };
+}
+
+function getCurrentAcademicYear() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-indexed: 0 = Jan, 8 = Sep
+  if (month >= 8) { // Sep to Dec
+    return `${year}/${year + 1}`;
+  } else { // Jan to Aug
+    return `${year - 1}/${year}`;
+  }
+}
+
+function isPastAcademicYear(yearStr) {
+  const parsed = parseAcademicYear(yearStr);
+  const current = parseAcademicYear(getCurrentAcademicYear());
+  return parsed.start < current.start;
+}
+
+function isFutureAcademicYear(yearStr) {
+  const parsed = parseAcademicYear(yearStr);
+  const current = parseAcademicYear(getCurrentAcademicYear());
+  return parsed.start > current.start;
+}
+
 const defaultSchools = [
   {
     id: 1,
@@ -139,7 +181,7 @@ async function q(sql, p = []) {
       is_admin: Boolean(p[3]),
       center_id: null,
       center_ids: [],
-      school_ids: [1, 2, 3], // Default access to sample schools
+      school_ids: [], // Start with 0 assigned schools until admin assigns
       phone: "",
       bio: "",
       created_at: now,
@@ -232,6 +274,11 @@ async function q(sql, p = []) {
     const schools = [...(localDb.schools || [])].sort((a, b) => a.name.localeCompare(b.name));
     return { rows: schools };
   }
+  if (s.includes("select * from schools where id=$1")) {
+    const sId = Number(p[0]);
+    const sch = (localDb.schools || []).find(x => x.id === sId);
+    return { rows: sch ? [sch] : [] };
+  }
   if (s.includes("insert into schools")) {
     const id = ((localDb.schools || []).reduce((max, sch) => Math.max(max, sch.id), 0) || 0) + 1;
     const school = {
@@ -250,16 +297,32 @@ async function q(sql, p = []) {
     return { rows: [{ id }] };
   }
   if (s.includes("update schools set")) {
-    const sId = Number(p[7] !== undefined ? p[7] : p[6]);
+    const sId = Number(p[p.length - 1]);
     const sch = (localDb.schools || []).find(x => x.id === sId);
     if (sch) {
+      const oldName = sch.name;
       sch.name = p[0];
-      sch.center_id = p[1] ? Number(p[1]) : null;
-      sch.contact_person = p[2] || "";
-      sch.phone = p[3] || "";
-      sch.email = p[4] || "";
-      sch.address = p[5] || "";
-      sch.session_time = p[6] || "";
+      if (p.length === 8) {
+        sch.center_id = p[1] ? Number(p[1]) : sch.center_id;
+        sch.contact_person = p[2] || "";
+        sch.phone = p[3] || "";
+        sch.email = p[4] || "";
+        sch.address = p[5] || "";
+        sch.session_time = p[6] || "";
+      } else {
+        sch.contact_person = p[1] || "";
+        sch.phone = p[2] || "";
+        sch.email = p[3] || "";
+        sch.address = p[4] || "";
+        sch.session_time = p[5] || "";
+      }
+      if (oldName && oldName.toLowerCase() !== sch.name.toLowerCase()) {
+        (localDb.reports || []).forEach(r => {
+          if ((r.school || "").toLowerCase() === oldName.toLowerCase()) {
+            r.school = sch.name;
+          }
+        });
+      }
       saveLocalDb();
     }
     return { rowCount: sch ? 1 : 0, rows: [] };
@@ -270,6 +333,17 @@ async function q(sql, p = []) {
       localDb.schools = localDb.schools.filter(x => x.id !== sId);
       saveLocalDb();
     }
+    return { rows: [] };
+  }
+  if (s.includes("update reports set school=$1 where lower(trim(school))=$2")) {
+    const newName = p[0];
+    const oldName = (p[1] || "").toLowerCase();
+    (localDb.reports || []).forEach(r => {
+      if ((r.school || "").trim().toLowerCase() === oldName) {
+        r.school = newName;
+      }
+    });
+    saveLocalDb();
     return { rows: [] };
   }
 
@@ -377,7 +451,7 @@ async function q(sql, p = []) {
   }
   if (s.includes("select member_id, year from reports where id=$1") || s.includes("select member_id from reports where id=$1")) {
     const rep = localDb.reports.find(r => r.id === Number(p[0]));
-    return { rows: rep ? [{ member_id: rep.member_id, year: rep.year || 2026 }] : [] };
+    return { rows: rep ? [{ member_id: rep.member_id, year: rep.year || "2026/2027", academic_session: rep.academic_session || "First Term" }] : [] };
   }
   if (s.includes("insert into reports")) {
     const id = (localDb.reports.reduce((max, r) => Math.max(max, r.id), 0) || 0) + 1;
@@ -396,7 +470,7 @@ async function q(sql, p = []) {
       challenges: p[9] || "",
       photos: p[10] || "[]",
       status: p[11] || "submitted",
-      year: Number(p[12]) || new Date().getFullYear(),
+      year: p[12] ? String(p[12]) : "2026/2027",
       academic_session: p[13] || "First Term",
       class_level: p[14] || "",
       created_at: now,
@@ -550,7 +624,7 @@ async function setup() {
       challenges text,
       photos text,
       status text default 'submitted',
-      year int default 2026,
+      year text default '2026/2027',
       academic_session text default 'First Term',
       created_at timestamptz default now(),
       updated_at timestamptz default now()
@@ -573,7 +647,8 @@ async function setup() {
     await q(`alter table reports add column if not exists photos text;`).catch(() => {});
     await q(`alter table reports add column if not exists status text default 'submitted';`).catch(() => {});
     await q(`alter table reports add column if not exists updated_at timestamptz default now();`).catch(() => {});
-    await q(`alter table reports add column if not exists year int default 2026;`).catch(() => {});
+    await q(`alter table reports add column if not exists year text default '2026/2027';`).catch(() => {});
+    await q(`alter table reports alter column year type text using year::text;`).catch(() => {});
     await q(`alter table reports add column if not exists academic_session text default 'First Term';`).catch(() => {});
     await q(`alter table reports add column if not exists class_level text;`).catch(() => {});
     await q(`alter table users add column if not exists last_active_at timestamptz default now();`).catch(() => {});
@@ -664,19 +739,14 @@ async function getUserSchools(user, allSchools) {
   if (user.is_admin) {
     return allSchools;
   }
-  let assignedIds = [];
-  if (isPostgres) {
-    const usRes = await q("select school_id from user_schools where user_id=$1", [user.id]);
-    assignedIds = usRes.rows.map(r => r.school_id);
-  } else {
-    assignedIds = user.school_ids || [];
-  }
+  const usRes = await q("select school_id from user_schools where user_id=$1", [user.id]);
+  const assignedIds = (usRes.rows || []).map(r => Number(r.school_id));
   // RULE: Newly created accounts must NOT have schools automatically assigned.
   // Return empty array if no school has explicitly been assigned by an admin.
   if (!assignedIds.length) {
     return [];
   }
-  return allSchools.filter(s => assignedIds.includes(s.id));
+  return (allSchools || []).filter(s => assignedIds.includes(Number(s.id)));
 }
 
 async function auth(req, res, next) {
@@ -948,7 +1018,7 @@ app.get("/api/data", auth, wrap(async (req, res) => {
   reports.forEach(rep => {
     const sch = (rep.school || "").trim().toLowerCase();
     if (!sch) return;
-    const yr = Number(rep.year) || new Date(rep.date || Date.now()).getFullYear();
+    const yr = rep.year ? String(rep.year).trim() : (rep.date ? String(new Date(rep.date).getFullYear()) : "2026/2027");
     const key = `${yr}:::${sch}`;
     if (!schoolAveragesMap[key]) {
       schoolAveragesMap[key] = { year: yr, school: rep.school.trim(), sumStudents: 0, count: 0 };
@@ -995,6 +1065,10 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
   const customMap = {};
   customTemplates.forEach(t => { customMap[t.key] = t.message; });
 
+  const defaultMsgDayBeforeTemplate = customMap["template_1day"] || `🌟 *TEENETWORK OUTREACH REMINDER (1 Day Before)*\n\nHello *{member_name}*,\nThis is an automated reminder of your upcoming school outreach session tomorrow:\n\n🏫 *School:* {school_name}\n📍 *Location:* {location}\n⏰ *Meeting Time:* {session_time}\n\nBe prayerful, prepared, and punctual. God bless your labor in TEENETWORK! 🙏✨`;
+
+  const defaultMsg3HoursTemplate = customMap["template_3hours"] || `🚨 *TEENETWORK URGENT REMINDER (3 Hours to Meeting)*\n\nHello *{member_name}*,\nYour outreach meeting starts in *3 hours*!\n\n🏫 *School:* {school_name}\n📍 *Location:* {location}\n⏰ *Meeting Time:* {session_time}\n\nPlease prepare to head out and arrive safely. You are making an eternal difference! 🌾🔥`;
+
   const reminders = [];
 
   for (const user of allUsers) {
@@ -1017,12 +1091,10 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
 
       // 1. "Day Before" Reminder
       const keyDayBefore = `${user.id}_${school.id}_1day`;
-      const sent1Day = remindersSent.find(r => r.user_id === user.id && r.school_id === school.id && r.reminder_type === "1_day_before");
+      const sent1Day = remindersSent.find(r => Number(r.user_id) === Number(user.id) && Number(r.school_id) === Number(school.id) && r.reminder_type === "1_day_before");
 
-      const defaultMsgDayBefore = `🌟 *TEENETWORK OUTREACH REMINDER (1 Day Before)*\n\nHello *${user.name}*,\nThis is an automated reminder of your upcoming school outreach session tomorrow:\n\n🏫 *School:* ${school.name}\n📍 *Location:* ${schoolAddress}\n⏰ *Meeting Time:* ${sessionTime}\n\nBe prayerful, prepared, and punctual. God bless your labor in TEENETWORK! 🙏✨`;
-
-      let msgDayBefore = customMap[keyDayBefore] || customMap["template_1day"] || defaultMsgDayBefore;
-      msgDayBefore = msgDayBefore
+      let rawTemplate1Day = customMap[keyDayBefore] || customMap["template_1day"] || defaultMsgDayBeforeTemplate;
+      let msgDayBefore = rawTemplate1Day
         .replace(/\{member_name\}/g, user.name)
         .replace(/\{school_name\}/g, school.name)
         .replace(/\{location\}/g, schoolAddress)
@@ -1046,17 +1118,15 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
         wa_link: waLink1Day,
         sent: Boolean(sent1Day),
         sent_at: sent1Day?.sent_at || null,
-        is_customized: Boolean(customMap[keyDayBefore])
+        is_customized: Boolean(customMap[keyDayBefore] || customMap["template_1day"])
       });
 
       // 2. "3 Hours Before" Reminder
       const key3Hours = `${user.id}_${school.id}_3hours`;
-      const sent3Hours = remindersSent.find(r => r.user_id === user.id && r.school_id === school.id && r.reminder_type === "3_hours_before");
+      const sent3Hours = remindersSent.find(r => Number(r.user_id) === Number(user.id) && Number(r.school_id) === Number(school.id) && r.reminder_type === "3_hours_before");
 
-      const defaultMsg3Hours = `🚨 *TEENETWORK URGENT REMINDER (3 Hours to Meeting)*\n\nHello *${user.name}*,\nYour outreach meeting starts in *3 hours*!\n\n🏫 *School:* ${school.name}\n📍 *Location:* ${schoolAddress}\n⏰ *Meeting Time:* ${sessionTime}\n\nPlease prepare to head out and arrive safely. You are making an eternal difference! 🌾🔥`;
-
-      let msg3Hours = customMap[key3Hours] || customMap["template_3hours"] || defaultMsg3Hours;
-      msg3Hours = msg3Hours
+      let rawTemplate3Hours = customMap[key3Hours] || customMap["template_3hours"] || defaultMsg3HoursTemplate;
+      let msg3Hours = rawTemplate3Hours
         .replace(/\{member_name\}/g, user.name)
         .replace(/\{school_name\}/g, school.name)
         .replace(/\{location\}/g, schoolAddress)
@@ -1080,12 +1150,17 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
         wa_link: waLink3Hours,
         sent: Boolean(sent3Hours),
         sent_at: sent3Hours?.sent_at || null,
-        is_customized: Boolean(customMap[key3Hours])
+        is_customized: Boolean(customMap[key3Hours] || customMap["template_3hours"])
       });
     }
   }
 
-  res.json({ reminders, total: reminders.length });
+  res.json({
+    reminders,
+    total: reminders.length,
+    template_1day: customMap["template_1day"] || defaultMsgDayBeforeTemplate,
+    template_3hours: customMap["template_3hours"] || defaultMsg3HoursTemplate
+  });
 }));
 
 app.put("/api/reminders/message", auth, admin, wrap(async (req, res) => {
@@ -1118,13 +1193,19 @@ app.post("/api/reminders/trigger", auth, admin, wrap(async (req, res) => {
   res.json({ ok: true, message: "Reminder marked as dispatched." });
 }));
 
-/* ---- AI WhatsApp Reminders Autonomous Background Dispatch Engine ---- */
+/* ---- AI WhatsApp Reminders Autonomous Background Dispatch Engine (Weekly Cycles) ---- */
 async function runAutoRemindersDispatch() {
   try {
     const allUsers = (await q("select id,name,email,phone,whatsapp,is_admin from users where is_admin=false")).rows;
     const allSchools = (await q("select * from schools")).rows;
     const remindersSent = (await q("select * from reminders_sent")).rows;
-    const todayStr = new Date().toISOString().split("T")[0];
+    
+    // Weekly cycle calculation: meeting days are weekly, reminders dispatched weekly
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const weekNum = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+    const weekKey = `${now.getFullYear()}-W${weekNum}`;
 
     for (const user of allUsers) {
       const userPhone = (user.whatsapp || user.phone || "").trim();
@@ -1141,13 +1222,13 @@ async function runAutoRemindersDispatch() {
             Number(r.user_id) === Number(user.id) &&
             Number(r.school_id) === Number(school.id) &&
             r.reminder_type === remType &&
-            r.session_date === todayStr
+            (r.session_date === weekKey || r.session_date === todayStr)
           );
 
           if (!alreadyDispatched) {
             await q("insert into reminders_sent(user_id, school_id, reminder_type, session_date) values($1, $2, $3, $4)",
-              [user.id, school.id, remType, todayStr]);
-            console.log(`[AI Auto-Reminder] Dispatched ${remType} reminder to ${user.name} (${userPhone}) for ${school.name}`);
+              [user.id, school.id, remType, weekKey]);
+            console.log(`[AI Auto-Reminder] Dispatched weekly ${remType} reminder to ${user.name} (${userPhone}) for ${school.name}`);
           }
         }
       }
@@ -1171,16 +1252,31 @@ app.post("/api/schools", auth, admin, wrap(async (req, res) => {
 }));
 
 app.put("/api/schools/:id", auth, admin, wrap(async (req, res) => {
+  const schoolId = Number(req.params.id);
   const { name, center_id, contact_person, phone, email, address, session_time } = req.body;
   if (!name) return res.status(400).json({ error: "School name is required." });
 
-  await q("update schools set name=$1, center_id=$2, contact_person=$3, phone=$4, email=$5, address=$6, session_time=$7 where id=$8",
-    [name.trim(), center_id ? Number(center_id) : null, contact_person || "", phone || "", email || "", address || "", session_time || "", req.params.id]);
+  const prevRes = await q("select * from schools where id=$1", [schoolId]);
+  const prevSchool = prevRes.rows[0];
+
+  if (center_id !== undefined) {
+    await q("update schools set name=$1, center_id=$2, contact_person=$3, phone=$4, email=$5, address=$6, session_time=$7 where id=$8",
+      [name.trim(), center_id ? Number(center_id) : null, contact_person || "", phone || "", email || "", address || "", session_time || "", schoolId]);
+  } else {
+    await q("update schools set name=$1, contact_person=$2, phone=$3, email=$4, address=$5, session_time=$6 where id=$7",
+      [name.trim(), contact_person || "", phone || "", email || "", address || "", session_time || "", schoolId]);
+  }
+
+  if (prevSchool && prevSchool.name && prevSchool.name.trim().toLowerCase() !== name.trim().toLowerCase()) {
+    await q("update reports set school=$1 where lower(trim(school))=$2", [name.trim(), prevSchool.name.trim().toLowerCase()]).catch(() => {});
+  }
+
   res.json({ ok: true });
 }));
 
 app.delete("/api/schools/:id", auth, admin, wrap(async (req, res) => {
-  await q("delete from schools where id=$1", [req.params.id]);
+  const schoolId = Number(req.params.id);
+  await q("delete from schools where id=$1", [schoolId]);
   res.json({ ok: true });
 }));
 
@@ -1236,7 +1332,7 @@ app.put("/api/users/:id/schools", auth, admin, wrap(async (req, res) => {
   res.json({ ok: true, school_ids: schoolIds });
 }));
 
-/* ---- Report Submission & Editing (With Year Lockout Rule & Class Level) ---- */
+/* ---- Report Submission & Editing (With Academic Year Lockout Rule & Term Bounds) ---- */
 app.post("/api/reports", auth, wrap(async (req, res) => {
   const u = req.user, b = req.body;
   const allCenters = (await q("select * from centers order by name")).rows;
@@ -1251,17 +1347,36 @@ app.post("/api/reports", auth, wrap(async (req, res) => {
     return res.status(400).json({ error: "Please fill in date, session details and number of students." });
   }
 
-  const currentYear = new Date().getFullYear();
-  const year = Number(b.year) || currentYear;
+  const year = b.year ? String(b.year).trim() : getCurrentAcademicYear();
+  const academicSession = b.academic_session || "First Term";
+  const classLevel = b.class_level || b.class || "";
 
-  // Previous Years Lockout Rule:
-  if (year < currentYear && !u.is_admin) {
+  // Past Academic Years Lockout Rule:
+  if (isPastAcademicYear(year) && !u.is_admin) {
     return res.status(403).json({ error: "Members cannot submit reports for past academic years. Only administrators can submit past year reports." });
   }
 
+  // Academic Term Date Bounds:
+  // Under Y/Y+1:
+  // First Term: 01 September Y till 26 December Y
+  // Second Term: 01 January Y+1 till 30 April Y+1
+  // Third Term: 01 May Y+1 till 30 August Y+1
+  const yearObj = parseAcademicYear(year);
+  let termMin = `${yearObj.start}-09-01`;
+  let termMax = `${yearObj.start}-12-26`;
+  if (academicSession.toLowerCase().includes("second")) {
+    termMin = `${yearObj.end}-01-01`;
+    termMax = `${yearObj.end}-04-30`;
+  } else if (academicSession.toLowerCase().includes("third")) {
+    termMin = `${yearObj.end}-05-01`;
+    termMax = `${yearObj.end}-08-30`;
+  }
+
+  if (b.date < termMin || b.date > termMax) {
+    return res.status(400).json({ error: `Session date (${b.date}) must be within ${academicSession} dates (${termMin} to ${termMax}).` });
+  }
+
   const photos = Array.isArray(b.photos) ? JSON.stringify(b.photos) : (typeof b.photos === "string" ? b.photos : "[]");
-  const academicSession = b.academic_session || "First Term";
-  const classLevel = b.class_level || b.class || "";
 
   await q(`insert into reports(center_id,member_id,member_name,school,date,attendance,details,students,remarks,challenges,photos,status,year,academic_session,class_level)
            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
@@ -1278,11 +1393,10 @@ app.put("/api/reports/:id", auth, wrap(async (req, res) => {
   if (!check.rows[0]) return res.status(404).json({ error: "Report not found" });
 
   const report = check.rows[0];
-  const currentYear = new Date().getFullYear();
 
-  // Past Year Lockout Rule:
+  // Past Academic Year Lockout Rule:
   // "ONCE A YEAR IS FINISHED THE DETAILS IN THAT YEAR WILL BECOME EDITABLE ONLY BY AN ADMIN WHEN THEY LOG IN TO REVIEW THE REPORTS"
-  if (Number(report.year) < currentYear && !u.is_admin) {
+  if (isPastAcademicYear(report.year) && !u.is_admin) {
     return res.status(403).json({ error: "This report is from a past academic year and is locked. It can only be reviewed or edited by an Administrator." });
   }
 
@@ -1308,9 +1422,8 @@ app.delete("/api/reports/:id", auth, wrap(async (req, res) => {
   if (!check.rows[0]) return res.status(404).json({ error: "Report not found" });
 
   const report = check.rows[0];
-  const currentYear = new Date().getFullYear();
 
-  if (Number(report.year) < currentYear && !req.user.is_admin) {
+  if (isPastAcademicYear(report.year) && !req.user.is_admin) {
     return res.status(403).json({ error: "Reports from past academic years cannot be deleted by members. Contact an administrator." });
   }
 
@@ -1325,33 +1438,44 @@ function filterReportsByTimeframe(reports, { timeframe, start_date, end_date, sc
     list = list.filter(r => (r.school || "").trim().toLowerCase() === school.trim().toLowerCase());
   }
   if (year && !timeframe) {
-    list = list.filter(r => Number(r.year) === Number(year));
+    list = list.filter(r => String(r.year || "").trim() === String(year).trim());
   }
-  if (timeframe === "2026") {
-    list = list.filter(r => (Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026)) === 2026);
-  } else if (timeframe === "2026_term1") {
+  if (timeframe === "2026/2027" || timeframe === "2026") {
     list = list.filter(r => {
-      const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+      const parsed = parseAcademicYear(r.year);
+      return parsed.str === "2026/2027" || Number(r.year) === 2026;
+    });
+  } else if (timeframe === "2026/2027_term1" || timeframe === "2026_term1") {
+    list = list.filter(r => {
+      const parsed = parseAcademicYear(r.year);
       const isTerm = r.academic_session === "First Term";
       const inDates = r.date ? (r.date >= "2026-09-01" && r.date <= "2026-12-26") : false;
-      return yr === 2026 && (isTerm || inDates);
+      return (parsed.str === "2026/2027" || Number(r.year) === 2026) && (isTerm || inDates);
     });
-  } else if (timeframe === "2026_term2") {
+  } else if (timeframe === "2026/2027_term2" || timeframe === "2026_term2") {
     list = list.filter(r => {
-      const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+      const parsed = parseAcademicYear(r.year);
       const isTerm = r.academic_session === "Second Term";
-      const inDates = r.date ? (r.date >= "2026-01-01" && r.date <= "2026-04-20") : false;
-      return yr === 2026 && (isTerm || inDates);
+      const inDates = r.date ? (r.date >= "2027-01-01" && r.date <= "2027-04-30") : false;
+      return (parsed.str === "2026/2027" || Number(r.year) === 2026) && (isTerm || inDates);
     });
-  } else if (timeframe === "2026_term3") {
+  } else if (timeframe === "2026/2027_term3" || timeframe === "2026_term3") {
     list = list.filter(r => {
-      const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+      const parsed = parseAcademicYear(r.year);
       const isTerm = r.academic_session === "Third Term";
-      const inDates = r.date ? (r.date >= "2026-04-25" && r.date <= "2026-08-15") : false;
-      return yr === 2026 && (isTerm || inDates);
+      const inDates = r.date ? (r.date >= "2027-05-01" && r.date <= "2027-08-30") : false;
+      return (parsed.str === "2026/2027" || Number(r.year) === 2026) && (isTerm || inDates);
     });
-  } else if (timeframe === "2025") {
-    list = list.filter(r => (Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2025)) === 2025);
+  } else if (timeframe === "2025/2026" || timeframe === "2025") {
+    list = list.filter(r => {
+      const parsed = parseAcademicYear(r.year);
+      return parsed.str === "2025/2026" || Number(r.year) === 2025;
+    });
+  } else if (timeframe === "2024/2025" || timeframe === "2024") {
+    list = list.filter(r => {
+      const parsed = parseAcademicYear(r.year);
+      return parsed.str === "2024/2025" || Number(r.year) === 2024;
+    });
   } else if (start_date || end_date) {
     if (start_date) list = list.filter(r => !r.date || r.date >= start_date);
     if (end_date) list = list.filter(r => !r.date || r.date <= end_date);

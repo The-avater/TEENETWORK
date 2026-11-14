@@ -631,12 +631,56 @@
     let savedAccounts = [];
     let currentYear = new Date().getFullYear(); // e.g. 2026, increments dynamically
 
+    /* Academic Year & Term Utilities */
+    function parseAcademicYear(yearStr) {
+      if (!yearStr) return { start: 2026, end: 2027, str: "2026/2027" };
+      const str = String(yearStr).trim();
+      const parts = str.split("/");
+      if (parts.length === 2) {
+        const start = parseInt(parts[0], 10);
+        const end = parseInt(parts[1], 10);
+        if (!isNaN(start) && !isNaN(end)) {
+          return { start, end, str: `${start}/${end}` };
+        }
+      }
+      const num = parseInt(str, 10);
+      if (!isNaN(num)) {
+        return { start: num, end: num + 1, str: `${num}/${num + 1}` };
+      }
+      return { start: 2026, end: 2027, str: "2026/2027" };
+    }
+
+    function getCurrentAcademicYear() {
+      const now = new Date();
+      const yr = now.getFullYear();
+      const m = now.getMonth(); // 0 = Jan, 8 = Sep
+      if (m >= 8) { // Sep to Dec
+        return `${yr}/${yr + 1}`;
+      } else { // Jan to Aug
+        return `${yr - 1}/${yr}`;
+      }
+    }
+
+    function isPastAcademicYear(yearStr) {
+      const parsed = parseAcademicYear(yearStr);
+      const current = parseAcademicYear(getCurrentAcademicYear());
+      return parsed.start < current.start;
+    }
+
+    function isFutureAcademicYear(yearStr) {
+      const parsed = parseAcademicYear(yearStr);
+      const current = parseAcademicYear(getCurrentAcademicYear());
+      return parsed.start > current.start;
+    }
+
     // Member navigation workflow state:
     let selectedSchool = null;
-    let selectedYear = null;
+    let selectedYear = null; // e.g. "2026/2027"
     let selectedSession = null; // "First Term", "Second Term", "Third Term"
     let currentEditId = null;
     let reportPhotos = [];
+    let expandedReportIds = new Set();
+    let memberReportsFilterYear = "all";
 
     // Admin view state:
     let adminTab = "reports"; // "reports", "members", "schools", "reminders"
@@ -645,10 +689,12 @@
     let filterDate = "all";
     let filterQuery = "";
     let filterReminderType = "all";
+    let reminderSearchQuery = "";
     let remindersList = [];
+    let reminderTemplates = { template_1day: "", template_3hours: "" };
 
     // Admin Export timeframe state:
-    let exportTimeframe = "all"; // "all", "2026", "2026_term1", "2026_term2", "2026_term3", "2025", "custom"
+    let exportTimeframe = "all"; // "all", "2026/2027", "2026/2027_term1", etc.
     let exportStartDate = "";
     let exportEndDate = "";
     let exportSchool = "all";
@@ -1088,6 +1134,16 @@
         return memberSessionSelectionStage();
       }
 
+      // My Submitted Reports
+      const myReports = reports.filter(r => r.member_id === me.id);
+      let filteredMyReports = [...myReports];
+      if (memberReportsFilterYear !== "all") {
+        filteredMyReports = filteredMyReports.filter(r => {
+          const parsed = parseAcademicYear(r.year);
+          return parsed.str === memberReportsFilterYear || String(r.year) === memberReportsFilterYear;
+        });
+      }
+
       // STEP 1: WELCOME TEXT AND ASSIGNED SCHOOLS (CLICKABLE)
       return `
         <div class="space-y-6">
@@ -1148,6 +1204,47 @@
                 </div>`).join('')}
             </div>
           </div>
+
+          <!-- 3. Your Submitted Reports History (Detailed & Expandable) -->
+          <div class="pt-6 border-t border-slate-200 dark:border-[#1e356d] space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>📋 Your Submitted Reports History</span>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300 font-bold border border-egyptian-200 dark:border-egyptian-800">
+                    ${myReports.length}
+                  </span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">
+                  Click on any report summary below to expand the full session details, attendance, photos, and remarks.
+                </p>
+              </div>
+
+              <!-- Academic Year Filter Pills -->
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button onclick="memberReportsFilterYear='all'; render();" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${memberReportsFilterYear === 'all' ? 'bg-egyptian-700 text-white shadow-sm' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
+                  All (${myReports.length})
+                </button>
+                <button onclick="memberReportsFilterYear='2026/2027'; render();" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${memberReportsFilterYear === '2026/2027' ? 'bg-egyptian-700 text-white shadow-sm' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
+                  2026/2027 (Active)
+                </button>
+                <button onclick="memberReportsFilterYear='2025/2026'; render();" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${memberReportsFilterYear === '2025/2026' ? 'bg-amber-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
+                  2025/2026 (Past)
+                </button>
+                <button onclick="memberReportsFilterYear='2024/2025'; render();" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${memberReportsFilterYear === '2024/2025' ? 'bg-amber-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
+                  2024/2025 (Past)
+                </button>
+              </div>
+            </div>
+
+            ${filteredMyReports.length === 0 ? `
+              <div class="p-8 rounded-3xl bg-white dark:bg-[#111d3d] border border-slate-200 dark:border-[#1e356d] text-center text-slate-400">
+                <span class="text-3xl block mb-2">📋</span>
+                <p class="text-xs font-semibold">No submitted session reports found for this filter.</p>
+                <p class="text-[11px] text-slate-400 mt-1">Select an assigned school above to write and submit a report.</p>
+              </div>
+            ` : renderReportCards(filteredMyReports)}
+          </div>
         </div>`;
     }
 
@@ -1201,13 +1298,14 @@
       render();
     }
 
-    /* STAGE 1: YEAR SELECTION (Increases as years pass by) */
+    /* STAGE 1: ACADEMIC YEAR SELECTION (e.g. 2024/2025, 2025/2026, 2026/2027) */
     function memberYearSelectionStage() {
-      // Future years e.g. 2027 are visible but not clickable
-      // Past years are locked for members (only clickable by admin)
+      const activeAcad = getCurrentAcademicYear(); // e.g. "2026/2027"
+      const curStart = parseAcademicYear(activeAcad).start;
+
       const yearsList = [];
-      for (let y = 2025; y <= currentYear + 2; y++) {
-        yearsList.push(y);
+      for (let y = 2024; y <= curStart + 1; y++) {
+        yearsList.push(`${y}/${y + 1}`);
       }
 
       return `
@@ -1229,44 +1327,47 @@
               Step 1 of 2
             </span>
             <h2 class="text-xl font-black text-slate-900 dark:text-white mt-2">Select Academic Year</h2>
-            <p class="text-xs text-slate-500 mt-1">Select the calendar year for session reports at ${esc(selectedSchool.name)}.</p>
+            <p class="text-xs text-slate-500 mt-1">Select the academic session year for reporting at ${esc(selectedSchool.name)}.</p>
             
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6">
-              ${yearsList.map(y => {
-                if (y > currentYear) {
+              ${yearsList.map(yStr => {
+                const isFut = isFutureAcademicYear(yStr);
+                const isPast = isPastAcademicYear(yStr);
+
+                if (isFut) {
                   return `
                     <div class="p-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-[#1e356d] bg-slate-50/50 dark:bg-[#0a1128]/50 text-slate-400 opacity-60 cursor-not-allowed select-none transition">
                       <div class="flex items-center justify-between">
-                        <span class="font-bold text-base">${y}</span>
+                        <span class="font-bold text-sm sm:text-base">${yStr}</span>
                         <span class="text-xs">🔒</span>
                       </div>
                       <span class="block text-[9px] uppercase font-bold text-slate-400 mt-1">Future Year (Locked)</span>
                     </div>`;
                 }
-                if (y < currentYear) {
+                if (isPast) {
                   if (!me.is_admin) {
                     return `
                       <div class="p-4 rounded-2xl border-2 border-slate-200 dark:border-[#1e356d] bg-slate-100/60 dark:bg-[#0a1128]/60 text-slate-400 opacity-70 cursor-not-allowed select-none transition">
                         <div class="flex items-center justify-between">
-                          <span class="font-bold text-base">${y}</span>
+                          <span class="font-bold text-sm sm:text-base">${yStr}</span>
                           <span class="text-xs">🔒</span>
                         </div>
                         <span class="block text-[9px] uppercase font-bold text-slate-400 mt-1">Past Year (Closed)</span>
                       </div>`;
                   }
                   return `
-                    <button onclick="chooseYear(${y})" class="p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold hover:border-amber-500 transition text-base">
+                    <button onclick="chooseYear('${yStr}')" class="p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold hover:border-amber-500 transition text-sm sm:text-base">
                       <div class="flex items-center justify-between">
-                        <span>${y}</span>
+                        <span>${yStr}</span>
                         <span class="text-xs">🛡️</span>
                       </div>
                       <span class="block text-[9px] text-amber-700 dark:text-amber-400 mt-0.5 font-bold uppercase">Past Year (Admin)</span>
                     </button>`;
                 }
                 return `
-                  <button onclick="chooseYear(${y})" class="p-4 rounded-2xl border-2 border-egyptian-600 bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-200 shadow-md font-black hover:scale-[1.02] transition text-base">
+                  <button onclick="chooseYear('${yStr}')" class="p-4 rounded-2xl border-2 border-egyptian-600 bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-200 shadow-md font-black hover:scale-[1.02] transition text-sm sm:text-base">
                     <div class="flex items-center justify-between">
-                      <span>${y}</span>
+                      <span>${yStr}</span>
                       <span class="text-xs">✨</span>
                     </div>
                     <span class="block text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 mt-1">Active Year</span>
@@ -1278,33 +1379,36 @@
     }
 
     function chooseYear(year) {
-      selectedYear = year;
+      selectedYear = String(year);
       selectedSession = null;
       render();
     }
 
     /* STAGE 2: ACADEMIC SESSION SELECTION (First Term, Second Term, Third Term) */
     function memberSessionSelectionStage() {
+      const yearObj = parseAcademicYear(selectedYear);
+      const startY = yearObj.start;
+      const endY = yearObj.end;
       const terms = [
         {
           id: "First Term",
           title: "First Term",
-          dateRange: "01 September till 26 December",
-          desc: "September till December session period (01 Sep – 26 Dec)",
+          dateRange: `01 September ${startY} till 26 December ${startY}`,
+          desc: `September till December session period (01 Sep – 26 Dec ${startY})`,
           icon: "📘"
         },
         {
           id: "Second Term",
           title: "Second Term",
-          dateRange: "01 January till 20 April",
-          desc: "January till April session period (01 Jan – 20 Apr)",
+          dateRange: `01 January ${endY} till 30 April ${endY}`,
+          desc: `January till April session period (01 Jan – 30 Apr ${endY})`,
           icon: "📗"
         },
         {
           id: "Third Term",
           title: "Third Term",
-          dateRange: "25 April till 15 August",
-          desc: "April till August session period (25 Apr – 15 Aug)",
+          dateRange: `01 May ${endY} till 30 August ${endY}`,
+          desc: `May till August session period (01 May – 30 Aug ${endY})`,
           icon: "📙"
         }
       ];
@@ -1360,34 +1464,31 @@
       // Find reports matching this specific school, year, and session:
       const matchedReports = reports.filter(r =>
         (r.school || "").trim().toLowerCase() === selectedSchool.name.trim().toLowerCase() &&
-        Number(r.year || 2026) === Number(selectedYear) &&
+        parseAcademicYear(r.year).str === parseAcademicYear(selectedYear).str &&
         (r.academic_session || "First Term").trim().toLowerCase() === selectedSession.trim().toLowerCase()
       );
 
-      // Past Year Lockout Check:
-      // "ONCE A YEAR IS FINISHED THE DETAILS IN THAT YEAR WILL BECOME EDITABLE ONLY BY AN ADMIN WHEN THEY LOG IN TO REVIEW THE REPORTS"
-      // "make it such that members are unable to submit and edit report for previous years"
-      const isPastYear = Number(selectedYear) < currentYear;
+      const isPastYear = isPastAcademicYear(selectedYear);
+      const yearObj = parseAcademicYear(selectedYear);
+      const startY = yearObj.start;
+      const endY = yearObj.end;
 
-      // Date ranges for academic terms:
-      // First Term: 01 September till 26 December
-      // Second Term: 01 January till 20 April
-      // Third Term: 25 April till 15 August
-      let termMinDate = `${selectedYear}-01-01`;
-      let termMaxDate = `${selectedYear}-12-31`;
-      let termDateNotice = "";
-      if (selectedSession === "First Term") {
-        termMinDate = `${selectedYear}-09-01`;
-        termMaxDate = `${selectedYear}-12-26`;
-        termDateNotice = "01 September till 26 December";
-      } else if (selectedSession === "Second Term") {
-        termMinDate = `${selectedYear}-01-01`;
-        termMaxDate = `${selectedYear}-04-20`;
-        termDateNotice = "01 January till 20 April";
+      // Academic Term date ranges:
+      // First Term: 01 September startY till 26 December startY
+      // Second Term: 01 January endY till 30 April endY
+      // Third Term: 01 May endY till 30 August endY
+      let termMinDate = `${startY}-09-01`;
+      let termMaxDate = `${startY}-12-26`;
+      let termDateNotice = `01 September ${startY} till 26 December ${startY}`;
+
+      if (selectedSession === "Second Term") {
+        termMinDate = `${endY}-01-01`;
+        termMaxDate = `${endY}-04-30`;
+        termDateNotice = `01 January ${endY} till 30 April ${endY}`;
       } else if (selectedSession === "Third Term") {
-        termMinDate = `${selectedYear}-04-25`;
-        termMaxDate = `${selectedYear}-08-15`;
-        termDateNotice = "25 April till 15 August";
+        termMinDate = `${endY}-05-01`;
+        termMaxDate = `${endY}-08-30`;
+        termDateNotice = `01 May ${endY} till 30 August ${endY}`;
       }
 
       // Default date value within the term
@@ -1697,7 +1798,7 @@
 
       const payload = {
         school: selectedSchool.name,
-        year: Number(selectedYear),
+        year: selectedYear,
         academic_session: selectedSession,
         class_level: $("rf_class") ? $("rf_class").value : "",
         center_id: selectedSchool.center_id,
@@ -1732,14 +1833,14 @@
       if (!rep) return;
 
       // Lockout check:
-      if (Number(rep.year) < currentYear && !me.is_admin) {
+      if (isPastAcademicYear(rep.year) && !me.is_admin) {
         alert("This report is from a past academic year and is locked for editing by members. Only an Administrator can edit it.");
         return;
       }
 
       currentEditId = repId;
       selectedSchool = schools.find(s => s.name.trim().toLowerCase() === (rep.school || "").trim().toLowerCase()) || { name: rep.school, id: 0 };
-      selectedYear = rep.year || currentYear;
+      selectedYear = rep.year ? String(rep.year) : getCurrentAcademicYear();
       selectedSession = rep.academic_session || "First Term";
       render();
 
@@ -1937,9 +2038,10 @@
 
       try {
         await api("PUT", `/api/schools/${id}`, { name, contact_person, session_time, phone, email, address });
-        flash("School details updated!");
+        flash("School details updated successfully!");
         closeEditSchoolModal();
         await boot();
+        render();
       } catch (e) {
         flash("", e.message);
         btn.disabled = false; btn.textContent = "Save Changes";
@@ -1980,6 +2082,8 @@
       try {
         const res = await api("GET", "/api/reminders");
         remindersList = res.reminders || [];
+        reminderTemplates.template_1day = res.template_1day || "";
+        reminderTemplates.template_3hours = res.template_3hours || "";
       } catch (e) {
         console.error("Failed to load reminders:", e);
       }
@@ -1994,6 +2098,15 @@
       if (filterReminderType !== "all") {
         filtered = filtered.filter(r => r.reminder_type_raw === filterReminderType);
       }
+      if (reminderSearchQuery) {
+        const q = reminderSearchQuery.toLowerCase();
+        filtered = filtered.filter(r =>
+          (r.user_name || "").toLowerCase().includes(q) ||
+          (r.school_name || "").toLowerCase().includes(q) ||
+          (r.whatsapp || "").toLowerCase().includes(q) ||
+          (r.message || "").toLowerCase().includes(q)
+        );
+      }
 
       return `
         <div class="space-y-6 animate-fade-in">
@@ -2003,10 +2116,11 @@
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xl">🤖</span>
                 <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 tracking-wider">AI Autonomous Engine Active</span>
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-white tracking-wider">Weekly Meeting Dispatch</span>
               </div>
               <h2 class="text-2xl font-black">AI WhatsApp Meeting Reminders</h2>
               <p class="text-xs text-emerald-100 max-w-xl mt-1">
-                Reminders are dispatched automatically in the background 1 day before and 3 hours before meetings without requiring admin manual approval. You can preview, edit, or customize any message below at any time.
+                Reminders are dispatched weekly in the background 1 day before and 3 hours before meetings without requiring admin manual approval. Click the 1 DAY or 3 HOURS buttons below to customize default templates.
               </p>
             </div>
             <div class="flex items-center gap-3">
@@ -2033,7 +2147,7 @@
                 🤖
               </div>
               <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Auto-Dispatched</p>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Auto-Dispatched (Weekly)</p>
                 <h3 class="text-2xl font-black text-slate-900 dark:text-white">${sentCount}</h3>
               </div>
             </div>
@@ -2049,65 +2163,179 @@
             </div>
           </div>
 
-          <!-- Filter Pills -->
-          <div class="flex items-center gap-2">
-            <button onclick="filterReminderType='all'; render();" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === 'all' ? 'bg-egyptian-700 text-white shadow' : 'bg-white dark:bg-[#111d3d] border border-slate-200 dark:border-[#1e356d] text-slate-600 dark:text-slate-300'}">
-              All Reminders (${remindersList.length})
-            </button>
-            <button onclick="filterReminderType='1_day_before'; render();" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === '1_day_before' ? 'bg-egyptian-700 text-white shadow' : 'bg-white dark:bg-[#111d3d] border border-slate-200 dark:border-[#1e356d] text-slate-600 dark:text-slate-300'}">
-              1 Day Before
-            </button>
-            <button onclick="filterReminderType='3_hours_before'; render();" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === '3_hours_before' ? 'bg-egyptian-700 text-white shadow' : 'bg-white dark:bg-[#111d3d] border border-slate-200 dark:border-[#1e356d] text-slate-600 dark:text-slate-300'}">
-              3 Hours Before
-            </button>
+          <!-- Template Buttons: 3 HOURS and 1 DAY (Configures reminder message templates) -->
+          <div class="bg-white dark:bg-[#111d3d] p-5 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h4 class="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>⚙️ Automated Reminder Templates</span>
+                  <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Weekly Engine</span>
+                </h4>
+                <p class="text-xs text-slate-500 mt-0.5">
+                  Click on either button to preview and customize the template sent for that reminder stage.
+                </p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="openTemplateModal('1_day_before')" class="px-4 py-2.5 rounded-xl bg-egyptian-700 hover:bg-egyptian-800 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 active:scale-95">
+                  <span>📅 1 DAY</span>
+                  <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-md">Edit Template</span>
+                </button>
+                <button type="button" onclick="openTemplateModal('3_hours_before')" class="px-4 py-2.5 rounded-xl bg-fiery-600 hover:bg-fiery-700 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 active:scale-95">
+                  <span>⚡ 3 HOURS</span>
+                  <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-md">Edit Template</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div onclick="openTemplateModal('1_day_before')" class="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0a1128]/60 border border-slate-200 dark:border-[#1e356d] cursor-pointer hover:border-egyptian-500 transition group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span>📅</span> <span>1 Day Reminder Template</span>
+                  </span>
+                  <span class="text-[10px] font-bold text-egyptian-700 dark:text-egyptian-300 group-hover:underline">Click to Edit &rarr;</span>
+                </div>
+                <p class="text-slate-500 dark:text-slate-400 text-[11px] line-clamp-2 italic leading-relaxed">
+                  ${esc(reminderTemplates.template_1day || "Hello {member_name}! Automated reminder of your upcoming outreach session tomorrow at {school_name}...")}
+                </p>
+              </div>
+
+              <div onclick="openTemplateModal('3_hours_before')" class="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0a1128]/60 border border-slate-200 dark:border-[#1e356d] cursor-pointer hover:border-fiery-500 transition group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span>⚡</span> <span>3 Hours Reminder Template</span>
+                  </span>
+                  <span class="text-[10px] font-bold text-fiery-600 dark:text-fiery-400 group-hover:underline">Click to Edit &rarr;</span>
+                </div>
+                <p class="text-slate-500 dark:text-slate-400 text-[11px] line-clamp-2 italic leading-relaxed">
+                  ${esc(reminderTemplates.template_3hours || "Hello {member_name}! Your outreach meeting starts in 3 hours at {school_name}...")}
+                </p>
+              </div>
+            </div>
           </div>
 
-          <!-- Reminders Cards List -->
-          <div class="space-y-4">
-            ${filtered.length === 0 ? `
-              <div class="bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] text-center text-slate-400">
-                <span class="text-3xl block mb-2">📭</span>
-                <p class="text-xs font-semibold">No reminders matching the current filter. Reminders appear automatically for members who have assigned schools with valid contact numbers.</p>
-              </div>` : ''}
+          <!-- Non-Bulky Overview Table -->
+          <div class="bg-white dark:bg-[#111d3d] rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-sm overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-[#1e356d] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="font-black text-base text-slate-900 dark:text-white">Reminders Dispatch Overview</h3>
+                <p class="text-xs text-slate-500">Weekly automated reminders overview for outreach members with assigned schools.</p>
+              </div>
 
-            ${filtered.map(rem => `
-              <div class="bg-white dark:bg-[#111d3d] p-5 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div class="space-y-2 flex-1">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span class="font-black text-sm text-slate-900 dark:text-white">${esc(rem.user_name)}</span>
-                    <span class="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                      📱 ${esc(rem.whatsapp)}
-                    </span>
-                    <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${rem.reminder_type_raw === '3_hours_before' ? 'bg-fiery-50 text-fiery-700 dark:bg-fiery-950/80 dark:text-fiery-300 border border-fiery-200 dark:border-fiery-800' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800'}">
-                      ${esc(rem.reminder_type)}
-                    </span>
-                    ${rem.is_customized ? '<span class="text-[10px] font-bold text-egyptian-700 dark:text-egyptian-300 bg-egyptian-50 dark:bg-egyptian-950/80 border border-egyptian-200 dark:border-egyptian-800 px-2 py-0.5 rounded-full">✏️ Custom Message Active</span>' : ''}
-                    ${rem.sent ? '<span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">🤖 AI Auto-Dispatched</span>' : '<span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-2.5 py-0.5 rounded-full">⏳ Scheduled Auto-Dispatch</span>'}
-                  </div>
-
-                  <div class="text-xs text-slate-500 space-y-0.5">
-                    <p>🏫 <strong>Assigned School:</strong> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(rem.school_name)}</span> &bull; 📍 <strong>Location:</strong> ${esc(rem.location)}</p>
-                    <p>⏰ <strong>Session Meeting Time:</strong> <span class="font-bold text-slate-700 dark:text-slate-200">${esc(rem.session_time)}</span></p>
-                  </div>
-
-                  <!-- WhatsApp Message Bubble Preview -->
-                  <div class="mt-2 p-3 rounded-2xl bg-slate-50 dark:bg-[#0a1128]/70 border border-slate-200 dark:border-[#1e356d] text-[11px] font-sans text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
-                    ${esc(rem.message)}
-                  </div>
-                </div>
-
-                <!-- Actions: Preview & Edit Message and 1-Click WhatsApp Link -->
-                <div class="flex flex-col sm:flex-row md:flex-col items-stretch gap-2 shrink-0 w-full md:w-auto">
-                  <button type="button" onclick="openEditReminderModal('${rem.rem_key}', '${esc(rem.user_name)}', '${esc(rem.school_name)}', ${esc(JSON.stringify(rem.message))}, '${rem.reminder_type_raw}')" class="px-3.5 py-2 bg-egyptian-50 hover:bg-egyptian-100 dark:bg-egyptian-950 dark:hover:bg-egyptian-900 border border-egyptian-200 dark:border-egyptian-800 text-egyptian-700 dark:text-egyptian-300 font-bold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition">
-                    <span>✏️ Preview & Edit</span>
+              <!-- Search & Filters -->
+              <div class="flex items-center gap-2 flex-wrap">
+                <input id="reminderSearchInput" value="${esc(reminderSearchQuery)}" oninput="reminderSearchQuery=this.value; render();" placeholder="Search member, school..." class="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-egyptian-600">
+                <div class="flex items-center gap-1">
+                  <button onclick="filterReminderType='all'; render();" class="px-2.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === 'all' ? 'bg-egyptian-700 text-white shadow' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300'}">
+                    All (${remindersList.length})
                   </button>
-                  <a href="${rem.wa_link}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-1.5 transition">
-                    <span>📲 Open in WhatsApp</span>
-                  </a>
+                  <button onclick="filterReminderType='1_day_before'; render();" class="px-2.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === '1_day_before' ? 'bg-egyptian-700 text-white shadow' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300'}">
+                    1 Day
+                  </button>
+                  <button onclick="filterReminderType='3_hours_before'; render();" class="px-2.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === '3_hours_before' ? 'bg-egyptian-700 text-white shadow' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300'}">
+                    3 Hours
+                  </button>
                 </div>
-              </div>`).join('')}
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 dark:bg-[#0a1128] border-b border-slate-200 dark:border-[#1e356d] text-slate-500 uppercase font-extrabold text-[10px] tracking-wider">
+                  <tr>
+                    <th class="py-3 px-4">Member Name & Assigned School</th>
+                    <th class="py-3 px-4">Reminder Type & Meeting</th>
+                    <th class="py-3 px-4">Message Sent</th>
+                    <th class="py-3 px-4 text-center">Delivery Status</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-[#1e356d]/60 font-medium">
+                  ${filtered.length === 0 ? `
+                    <tr>
+                      <td colspan="5" class="py-10 text-center text-slate-400">
+                        <span class="text-2xl block mb-1">📭</span>
+                        <p class="text-xs font-semibold">No reminders matching the current filter.</p>
+                      </td>
+                    </tr>
+                  ` : filtered.map(rem => {
+                    const msgSnippet = rem.message.replace(/\n/g, ' ').slice(0, 75) + (rem.message.length > 75 ? '...' : '');
+                    return `
+                      <tr class="hover:bg-slate-50/60 dark:hover:bg-[#16254f]/40 transition">
+                        <td class="py-3 px-4">
+                          <div class="font-extrabold text-slate-900 dark:text-white">${esc(rem.user_name)}</div>
+                          <div class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                            <span class="font-mono text-emerald-600 dark:text-emerald-400 font-bold">📱 ${esc(rem.whatsapp)}</span>
+                            <span>&bull;</span>
+                            <span class="text-egyptian-700 dark:text-egyptian-300 font-bold">🏫 ${esc(rem.school_name)}</span>
+                          </div>
+                        </td>
+
+                        <td class="py-3 px-4">
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold ${rem.reminder_type_raw === '3_hours_before' ? 'bg-fiery-50 text-fiery-700 dark:bg-fiery-950/80 dark:text-fiery-300 border border-fiery-200 dark:border-fiery-800' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800'}">
+                            ${esc(rem.reminder_type)}
+                          </span>
+                          <div class="text-[11px] text-slate-400 mt-1">
+                            ⏰ ${esc(rem.session_time || 'Weekly Outreach')}
+                          </div>
+                        </td>
+
+                        <td class="py-3 px-4 max-w-xs">
+                          <div class="text-[11px] text-slate-700 dark:text-slate-300 line-clamp-2 font-sans bg-slate-50 dark:bg-[#0a1128]/50 p-2 rounded-xl border border-slate-100 dark:border-[#1e356d]/50">
+                            ${esc(msgSnippet)}
+                          </div>
+                        </td>
+
+                        <td class="py-3 px-4 text-center">
+                          ${rem.sent ? `
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold">
+                              <span>🤖 Auto-Sent</span>
+                            </span>
+                          ` : `
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-[11px] font-bold">
+                              <span>⏳ Scheduled Weekly</span>
+                            </span>
+                          `}
+                        </td>
+
+                        <td class="py-3 px-4 text-right">
+                          <div class="inline-flex items-center gap-1.5">
+                            <button type="button" onclick="openEditReminderModal('${rem.rem_key}', '${esc(rem.user_name)}', '${esc(rem.school_name)}', ${esc(JSON.stringify(rem.message))}, '${rem.reminder_type_raw}')" class="px-2.5 py-1.5 rounded-lg bg-egyptian-50 hover:bg-egyptian-100 dark:bg-egyptian-950 dark:hover:bg-egyptian-900 text-egyptian-700 dark:text-egyptian-300 font-bold text-[11px] transition" title="Preview & Edit Message">
+                              ✏️ Edit
+                            </button>
+                            <a href="${rem.wa_link}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition inline-flex items-center gap-1" title="Open in WhatsApp">
+                              <span>📲</span> <span>WhatsApp</span>
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>`;
+    }
+
+    function openTemplateModal(type) {
+      if (type === "1_day_before" || type === "1day") {
+        openEditReminderModal(
+          "template_1day",
+          "All Outreach Members",
+          "All Assigned Schools (1 Day Before)",
+          reminderTemplates.template_1day || `🌟 *TEENETWORK OUTREACH REMINDER (1 Day Before)*\n\nHello *{member_name}*,\nThis is an automated reminder of your upcoming school outreach session tomorrow:\n\n🏫 *School:* {school_name}\n📍 *Location:* {location}\n⏰ *Meeting Time:* {session_time}\n\nBe prayerful, prepared, and punctual. God bless your labor in TEENETWORK! 🙏✨`,
+          "1_day_before"
+        );
+      } else {
+        openEditReminderModal(
+          "template_3hours",
+          "All Outreach Members",
+          "All Assigned Schools (3 Hours Before)",
+          reminderTemplates.template_3hours || `🚨 *TEENETWORK URGENT REMINDER (3 Hours to Meeting)*\n\nHello *{member_name}*,\nYour outreach meeting starts in *3 hours*!\n\n🏫 *School:* {school_name}\n📍 *Location:* {location}\n⏰ *Meeting Time:* {session_time}\n\nPlease prepare to head out and arrive safely. You are making an eternal difference! 🌾🔥`,
+          "3_hours_before"
+        );
+      }
     }
 
     let currentEditRemKey = null;
@@ -2138,7 +2366,7 @@
       btn.disabled = true; btn.textContent = "Saving...";
       try {
         await api("PUT", "/api/reminders/message", { key, message });
-        flash("Customized message saved! The AI engine will now use this message.");
+        flash("Reminder message template saved! The AI autonomous engine will now use this customized message.");
         closeEditReminderModal();
         await loadRemindersData();
         render();
@@ -2194,11 +2422,12 @@
                 <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Timeframe Presets</label>
                 <select id="exportTimeframeSelect" onchange="onExportTimeframeChange(this.value)" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-900 dark:text-white font-semibold outline-none focus:ring-1 focus:ring-egyptian-600">
                   <option value="all" ${exportTimeframe === 'all' ? 'selected' : ''}>🌐 All Time (All Years & All Schools)</option>
-                  <option value="2026" ${exportTimeframe === '2026' ? 'selected' : ''}>📅 Full Academic Year 2026</option>
-                  <option value="2026_term1" ${exportTimeframe === '2026_term1' ? 'selected' : ''}>🍂 First Term 2026 (01 Sep - 26 Dec)</option>
-                  <option value="2026_term2" ${exportTimeframe === '2026_term2' ? 'selected' : ''}>❄️ Second Term 2026 (01 Jan - 20 Apr)</option>
-                  <option value="2026_term3" ${exportTimeframe === '2026_term3' ? 'selected' : ''}>☀️ Third Term 2026 (25 Apr - 15 Aug)</option>
-                  <option value="2025" ${exportTimeframe === '2025' ? 'selected' : ''}>🏛️ Academic Year 2025</option>
+                  <option value="2026/2027" ${exportTimeframe === '2026/2027' ? 'selected' : ''}>📅 Academic Year 2026/2027 (Active)</option>
+                  <option value="2026/2027_term1" ${exportTimeframe === '2026/2027_term1' ? 'selected' : ''}>🍂 First Term 2026/2027 (01 Sep 2026 - 26 Dec 2026)</option>
+                  <option value="2026/2027_term2" ${exportTimeframe === '2026/2027_term2' ? 'selected' : ''}>❄️ Second Term 2026/2027 (01 Jan 2027 - 30 Apr 2027)</option>
+                  <option value="2026/2027_term3" ${exportTimeframe === '2026/2027_term3' ? 'selected' : ''}>☀️ Third Term 2026/2027 (01 May 2027 - 30 Aug 2027)</option>
+                  <option value="2025/2026" ${exportTimeframe === '2025/2026' ? 'selected' : ''}>🏛️ Academic Year 2025/2026 (Past Year)</option>
+                  <option value="2024/2025" ${exportTimeframe === '2024/2025' ? 'selected' : ''}>🏛️ Academic Year 2024/2025 (Past Year)</option>
                   <option value="custom" ${exportTimeframe === 'custom' ? 'selected' : ''}>⚙️ Custom Date Range...</option>
                 </select>
               </div>
@@ -2490,7 +2719,16 @@
         </div>`;
     }
 
-    /* Shared Report Cards Component (With Past Year Lockout Logic) */
+    function toggleExpandReport(repId) {
+      if (expandedReportIds.has(repId)) {
+        expandedReportIds.delete(repId);
+      } else {
+        expandedReportIds.add(repId);
+      }
+      render();
+    }
+
+    /* Shared Report Cards Component: Summary visible on card, expanded in detail on click */
     function renderReportCards(list) {
       if (!list.length) {
         return `
@@ -2505,84 +2743,126 @@
           photos = typeof r.photos === 'string' ? JSON.parse(r.photos || '[]') : (r.photos || []);
         } catch {}
 
-        const repYear = Number(r.year || 2026);
-        const isPastYear = repYear < currentYear;
+        const repYearStr = r.year ? String(r.year) : "2026/2027";
+        const isPastYear = isPastAcademicYear(repYearStr);
+        const isExpanded = expandedReportIds.has(r.id);
 
-        // RULE: ONCE A YEAR IS FINISHED, THE DETAILS IN THAT YEAR BECOME EDITABLE ONLY BY AN ADMIN WHEN THEY LOG IN
+        // RULE: ONCE A YEAR IS FINISHED, DETAILS BECOME EDITABLE ONLY BY AN ADMIN WHEN THEY LOG IN
         const canEdit = me.is_admin || (!isPastYear && r.member_id === me.id);
         const formattedDate = r.date ? new Date(r.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : "";
+        const snippet = esc(r.details || '').replace(/\n/g, ' ').slice(0, 140) + ((r.details || '').length > 140 ? '...' : '');
 
         return `
-          <div class="rep-card bg-white dark:bg-[#111d3d] rounded-2xl border border-slate-200 dark:border-[#1e356d] p-5 shadow-sm space-y-3">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-[#1e356d]/60 pb-3">
-              <div>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <h4 class="font-black text-base text-slate-900 dark:text-white">${esc(r.school)}</h4>
-                  <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300 border border-egyptian-200 dark:border-egyptian-800">
-                    ${esc(r.academic_session || "First Term")} ${repYear}
+          <div class="rep-card bg-white dark:bg-[#111d3d] rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm hover:shadow transition overflow-hidden">
+            <!-- SUMMARY SECTION (Always Visible on Report Card) -->
+            <div onclick="toggleExpandReport(${r.id})" class="p-4 sm:p-5 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-[#16254f]/30 transition select-none group">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h4 class="font-black text-base text-slate-900 dark:text-white group-hover:text-egyptian-700 dark:group-hover:text-egyptian-300 transition-colors">
+                      🏫 ${esc(r.school)}
+                    </h4>
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300 border border-egyptian-200 dark:border-egyptian-800">
+                      ${esc(r.academic_session || "First Term")} ${repYearStr}
+                    </span>
+                    ${r.class_level ? `
+                      <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-fiery-50 dark:bg-fiery-950 text-fiery-700 dark:text-fiery-300 border border-fiery-200 dark:border-fiery-800">
+                        Class: ${esc(r.class_level)}
+                      </span>` : ''}
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#16254f] text-slate-500">
+                      📅 ${formattedDate}
+                    </span>
+                    ${isPastYear ? '<span class="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900">🔒 Past Year (View Only)</span>' : '<span class="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900">✨ Active Year</span>'}
+                  </div>
+                  <p class="text-xs text-slate-500">
+                    Logged by <strong class="text-slate-700 dark:text-slate-200">${esc(r.member_name || "Unknown Member")}</strong>
+                  </p>
+                </div>
+
+                <div class="flex items-center space-x-2 shrink-0">
+                  <span class="inline-flex items-center gap-1 text-xs font-extrabold px-3 py-1 rounded-xl bg-egyptian-700 text-white shadow-sm">
+                    🎓 ${(Number(r.students) || 0).toLocaleString()} students
                   </span>
-                  ${r.class_level ? `
-                    <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-fiery-50 dark:bg-fiery-950 text-fiery-700 dark:text-fiery-300 border border-fiery-200 dark:border-fiery-800">
-                      Class: ${esc(r.class_level)}
-                    </span>` : ''}
-                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#16254f] text-slate-500">
-                    ${formattedDate}
+                  <span class="text-sm text-slate-400 group-hover:text-egyptian-600 transition-transform transform ${isExpanded ? 'rotate-180' : ''}">
+                    ▼
                   </span>
                 </div>
-                <p class="text-xs text-slate-500 mt-1">
-                  Submitted by <span class="font-bold text-slate-700 dark:text-slate-200">${esc(r.member_name || "Unknown Member")}</span>
-                  ${isPastYear ? '<span class="ml-2 text-[10px] font-extrabold text-amber-600 dark:text-amber-400">🔒 Past Year (Admin review only)</span>' : ''}
-                </p>
               </div>
 
-              <div class="flex items-center space-x-2 shrink-0">
-                <span class="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-xl bg-egyptian-700 text-white shadow-sm">
-                  🎓 ${(Number(r.students) || 0).toLocaleString()} students
+              <!-- Brief summary snippet preview on card -->
+              <div class="mt-2 text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                ${snippet}
+              </div>
+
+              <div class="mt-3 pt-2 border-t border-slate-100 dark:border-[#1e356d]/60 flex items-center justify-between text-[11px] font-bold">
+                <span class="text-egyptian-700 dark:text-egyptian-300 flex items-center gap-1 group-hover:underline">
+                  ${isExpanded ? '▲ Click to collapse detailed view' : '▼ Click to expand full report in detail & photos'}
                 </span>
-
-                ${canEdit ? `
-                  <button onclick="startEditReport(${r.id})" class="p-1.5 text-slate-400 hover:text-egyptian-700 dark:hover:text-egyptian-400 rounded-lg transition" title="Edit report">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                  </button>
-                  <button onclick="deleteReportRow(${r.id})" class="p-1.5 text-slate-400 hover:text-fiery-600 rounded-lg transition" title="Delete report">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
-                ` : `
-                  <span class="text-xs text-slate-400" title="Locked: Past academic year">🔒</span>
-                `}
+                <span class="text-slate-400 font-medium">
+                  ${photos.length ? `📸 ${photos.length} photos` : ''}
+                </span>
               </div>
             </div>
 
-            ${r.attendance ? `
-              <div class="text-xs text-slate-600 dark:text-slate-300">
-                <span class="font-bold text-slate-700 dark:text-slate-200">👥 Members Present:</span> ${esc(r.attendance)}
-              </div>` : ''}
+            <!-- DETAILED EXPANDED REPORT SECTION -->
+            ${isExpanded ? `
+              <div class="p-5 pt-0 border-t border-slate-100 dark:border-[#1e356d]/60 space-y-4 bg-slate-50/40 dark:bg-[#0a1128]/30 animate-fade-in">
+                ${r.attendance ? `
+                  <div class="text-xs text-slate-700 dark:text-slate-300 pt-3">
+                    <span class="font-bold text-slate-900 dark:text-white">👥 Members in Attendance:</span> ${esc(r.attendance)}
+                  </div>` : ''}
 
-            <div class="text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line bg-[#f0f6ff]/50 dark:bg-[#0a1128]/40 p-3 rounded-xl border border-slate-100 dark:border-[#1e356d]/60">
-              ${esc(r.details)}
-            </div>
+                <div class="text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line bg-white dark:bg-[#0a1128] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-inner">
+                  <h5 class="font-extrabold uppercase text-[10px] text-slate-400 mb-1.5">Session Details & Topic Covered:</h5>
+                  ${esc(r.details)}
+                </div>
 
-            ${photos.length ? `
-              <div>
-                <p class="text-xs font-bold text-slate-500 mb-1.5">Session Photos (${photos.length})</p>
-                <div class="flex gap-2 flex-wrap">
-                  ${photos.map((src, pidx) => `
-                    <div onclick="openLightbox('${src}', '${esc(r.school)} - ${formattedDate}')" class="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 dark:border-[#1e356d] cursor-pointer hover:opacity-90 hover:scale-105 transition transform shadow-sm">
-                      <img src="${src}" class="w-full h-full object-cover" loading="lazy">
-                    </div>`).join('')}
+                ${photos.length ? `
+                  <div>
+                    <h5 class="font-extrabold uppercase text-[10px] text-slate-400 mb-2">Proof of Outreach Photos (${photos.length}):</h5>
+                    <div class="flex gap-2.5 flex-wrap">
+                      ${photos.map((src, pidx) => `
+                        <div onclick="openLightbox('${src}', '${esc(r.school)} - ${formattedDate}')" class="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-[#1e356d] cursor-pointer hover:opacity-90 hover:scale-105 transition transform shadow-sm bg-slate-100 dark:bg-slate-800">
+                          <img src="${src}" class="w-full h-full object-cover" loading="lazy">
+                        </div>`).join('')}
+                    </div>
+                  </div>` : ''}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  ${r.remarks ? `
+                    <div class="p-3 rounded-xl bg-egyptian-50/70 dark:bg-egyptian-950/40 border border-egyptian-100 dark:border-egyptian-900 text-egyptian-900 dark:text-egyptian-200">
+                      <span class="font-bold block text-[10px] uppercase text-egyptian-700 dark:text-egyptian-400 mb-0.5">✨ Remarks / Success Stories</span>
+                      ${esc(r.remarks)}
+                    </div>` : ''}
+                  ${r.challenges ? `
+                    <div class="p-3 rounded-xl bg-fiery-50/70 dark:bg-fiery-950/40 border border-fiery-100 dark:border-fiery-900 text-fiery-900 dark:text-fiery-200">
+                      <span class="font-bold block text-[10px] uppercase text-fiery-700 dark:text-fiery-400 mb-0.5">⚠️ Challenges Faced</span>
+                      ${esc(r.challenges)}
+                    </div>` : ''}
+                </div>
+
+                <!-- Action Toolbar inside Detailed View -->
+                <div class="pt-3 border-t border-slate-200 dark:border-[#1e356d] flex items-center justify-between">
+                  <button type="button" onclick="toggleExpandReport(${r.id})" class="text-xs text-slate-400 hover:text-slate-600 font-bold">
+                    ▲ Collapse
+                  </button>
+
+                  <div class="flex items-center space-x-2">
+                    ${canEdit ? `
+                      <button onclick="startEditReport(${r.id})" class="px-3 py-1.5 rounded-lg bg-egyptian-50 hover:bg-egyptian-100 dark:bg-egyptian-950 dark:hover:bg-egyptian-900 text-egyptian-700 dark:text-egyptian-300 font-bold text-xs flex items-center gap-1 transition" title="Edit this report">
+                        <span>✏️ Edit Report</span>
+                      </button>
+                      <button onclick="deleteReportRow(${r.id})" class="px-3 py-1.5 rounded-lg bg-fiery-50 hover:bg-fiery-100 dark:bg-fiery-950 dark:hover:bg-fiery-900 text-fiery-700 dark:text-fiery-300 font-bold text-xs flex items-center gap-1 transition" title="Delete this report">
+                        <span>🗑️ Delete</span>
+                      </button>
+                    ` : `
+                      <span class="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-[#16254f] px-2.5 py-1 rounded-lg">
+                        🔒 Past Academic Year Locked (Admin Only)
+                      </span>
+                    `}
+                  </div>
                 </div>
               </div>` : ''}
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              ${r.remarks ? `
-                <div class="p-2.5 rounded-xl bg-egyptian-50/70 dark:bg-egyptian-950/40 border border-egyptian-100 dark:border-egyptian-900 text-egyptian-900 dark:text-egyptian-200">
-                  <span class="font-bold">✨ Remarks:</span> ${esc(r.remarks)}
-                </div>` : ''}
-              ${r.challenges ? `
-                <div class="p-2.5 rounded-xl bg-fiery-50/70 dark:bg-fiery-950/40 border border-fiery-100 dark:border-fiery-900 text-fiery-900 dark:text-fiery-200">
-                  <span class="font-bold">⚠️ Challenges:</span> ${esc(r.challenges)}
-                </div>` : ''}
-            </div>
           </div>`;
       }).join('');
     }
