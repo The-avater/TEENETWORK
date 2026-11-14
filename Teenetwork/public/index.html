@@ -180,19 +180,26 @@
         <p class="text-xs text-slate-500 mt-1">Please select an action below:</p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <!-- Option 1: Report -->
         <button onclick="proceedToSchoolReport()" class="p-4 rounded-2xl border-2 border-egyptian-600 bg-egyptian-50/50 dark:bg-egyptian-950/40 hover:bg-egyptian-100 dark:hover:bg-egyptian-900/60 transition text-center group">
           <div class="text-2xl mb-1 group-hover:scale-110 transition-transform">📋</div>
-          <h4 class="font-black text-sm text-egyptian-900 dark:text-egyptian-100">Write Report</h4>
-          <p class="text-[10px] text-egyptian-700 dark:text-egyptian-300 mt-0.5">Select Year & Term to log session</p>
+          <h4 class="font-black text-xs sm:text-sm text-egyptian-900 dark:text-egyptian-100">Write Report</h4>
+          <p class="text-[10px] text-egyptian-700 dark:text-egyptian-300 mt-0.5">Log session for this school</p>
         </button>
 
         <!-- Option 2: Contact Details -->
         <button onclick="openSchoolContactDetails()" class="p-4 rounded-2xl border-2 border-slate-200 dark:border-[#1e356d] bg-white dark:bg-[#0a1128]/50 hover:bg-slate-50 dark:hover:bg-[#16254f]/50 transition text-center group">
           <div class="text-2xl mb-1 group-hover:scale-110 transition-transform">📞</div>
-          <h4 class="font-black text-sm text-slate-900 dark:text-white">Contact Details</h4>
-          <p class="text-[10px] text-slate-400 mt-0.5">Principal, Phone, Location</p>
+          <h4 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white">Contact Details</h4>
+          <p class="text-[10px] text-slate-400 mt-0.5">Contact, Phone, Location</p>
+        </button>
+
+        <!-- Option 3: View Previous Reports -->
+        <button onclick="viewSchoolPreviousReports()" class="p-4 rounded-2xl border-2 border-slate-200 dark:border-[#1e356d] bg-white dark:bg-[#0a1128]/50 hover:bg-slate-50 dark:hover:bg-[#16254f]/50 transition text-center group">
+          <div class="text-2xl mb-1 group-hover:scale-110 transition-transform">📚</div>
+          <h4 class="font-black text-xs sm:text-sm text-slate-900 dark:text-white">Previous Reports</h4>
+          <p class="text-[10px] text-slate-400 mt-0.5">All past years & sessions</p>
         </button>
       </div>
     </div>
@@ -708,6 +715,21 @@
     let reportPhotos = [];
     let expandedReportIds = new Set();
     let memberReportsFilterYear = "all";
+    let memberReportsFilterSchool = "all";
+
+    function getSelectedClasses() {
+      const cbs = document.querySelectorAll('input[name="rf_class_item"]:checked');
+      return Array.from(cbs).map(cb => cb.value).join(", ");
+    }
+
+    function setSelectedClasses(classStr) {
+      const selected = (classStr || "").split(",").map(s => s.trim().toLowerCase());
+      const cbs = document.querySelectorAll('input[name="rf_class_item"]');
+      cbs.forEach(cb => {
+        cb.checked = selected.includes(cb.value.toLowerCase());
+      });
+      if ($("rf_class")) $("rf_class").value = classStr || "";
+    }
 
     // Admin view state:
     let adminTab = "reports"; // "reports", "members", "schools", "reminders"
@@ -1317,11 +1339,21 @@
         return memberSessionSelectionStage();
       }
 
-      // My Submitted Reports
-      const myReports = reports.filter(r => r.member_id === me.id);
-      let filteredMyReports = [...myReports];
+      // Reports pertaining to member's assigned schools (all previous years, all ministers, and member's own reports)
+      const userSchoolNames = userSchools.map(s => (s.name || "").trim().toLowerCase());
+      const schoolReports = reports.filter(r =>
+        userSchoolNames.includes((r.school || "").trim().toLowerCase()) ||
+        r.member_id === me.id
+      );
+
+      let filteredSchoolReports = [...schoolReports];
+      if (memberReportsFilterSchool !== "all") {
+        filteredSchoolReports = filteredSchoolReports.filter(r =>
+          (r.school || "").trim().toLowerCase() === memberReportsFilterSchool.trim().toLowerCase()
+        );
+      }
       if (memberReportsFilterYear !== "all") {
-        filteredMyReports = filteredMyReports.filter(r => {
+        filteredSchoolReports = filteredSchoolReports.filter(r => {
           const parsed = parseAcademicYear(r.year);
           return parsed.str === memberReportsFilterYear || String(r.year) === memberReportsFilterYear;
         });
@@ -1388,46 +1420,55 @@
             </div>
           </div>
 
-          <!-- 3. Your Submitted Reports History (Detailed & Expandable) -->
-          <div class="pt-6 border-t border-slate-200 dark:border-[#1e356d] space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <!-- 3. Previous Reports for Your Assigned Schools (Detailed & Expandable) -->
+          <div id="memberReportsHistorySection" class="pt-6 border-t border-slate-200 dark:border-[#1e356d] space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                  <span>📋 Your Submitted Reports History</span>
+                  <span>📚 Previous Reports for Your School(s)</span>
                   <span class="text-xs px-2.5 py-0.5 rounded-full bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300 font-bold border border-egyptian-200 dark:border-egyptian-800">
-                    ${myReports.length}
+                    ${schoolReports.length} Total Reports
                   </span>
                 </h3>
                 <p class="text-xs text-slate-500 mt-0.5">
-                  Click on any report summary below to expand the full session details, attendance, photos, and remarks.
+                  Historical archive of all reports recorded for your assigned schools across past and active years. Click any card to expand full details. (Past years' reports are view-only).
                 </p>
               </div>
 
-              <!-- Academic Year Filter Pills -->
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <button onclick="memberReportsFilterYear='all'; render();" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${memberReportsFilterYear === 'all' ? 'bg-egyptian-700 text-white shadow-sm' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-                  All (${myReports.length})
-                </button>
-                <button onclick="memberReportsFilterYear='2026/2027'; render();" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${memberReportsFilterYear === '2026/2027' ? 'bg-egyptian-700 text-white shadow-sm' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-                  2026/2027 (Active)
-                </button>
-                <button onclick="memberReportsFilterYear='2025/2026'; render();" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${memberReportsFilterYear === '2025/2026' ? 'bg-amber-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-                  2025/2026 (Past)
-                </button>
-                <button onclick="memberReportsFilterYear='2024/2025'; render();" class="px-2.5 py-1 rounded-lg text-xs font-bold transition ${memberReportsFilterYear === '2024/2025' ? 'bg-amber-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300 hover:bg-slate-200'}">
-                  2024/2025 (Past)
-                </button>
+              <!-- Filter pills for School & Academic Year -->
+              <div class="flex items-center gap-2 flex-wrap">
+                <!-- School Filter -->
+                <select onchange="memberReportsFilterSchool=this.value; render();" class="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-700 dark:text-slate-300 outline-none">
+                  <option value="all" ${memberReportsFilterSchool === 'all' ? 'selected' : ''}>🏫 All Assigned Schools</option>
+                  ${userSchools.map(s => `<option value="${esc(s.name)}" ${memberReportsFilterSchool.toLowerCase() === s.name.toLowerCase() ? 'selected' : ''}>🏫 ${esc(s.name)}</option>`).join('')}
+                </select>
+
+                <!-- Year Filter -->
+                <div class="flex items-center gap-1 bg-slate-100 dark:bg-[#0a1128] p-1 rounded-xl">
+                  <button onclick="memberReportsFilterYear='all'; render();" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${memberReportsFilterYear === 'all' ? 'bg-egyptian-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'}">
+                    All (${schoolReports.length})
+                  </button>
+                  <button onclick="memberReportsFilterYear='2026/2027'; render();" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${memberReportsFilterYear === '2026/2027' ? 'bg-egyptian-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'}">
+                    2026/2027
+                  </button>
+                  <button onclick="memberReportsFilterYear='2025/2026'; render();" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${memberReportsFilterYear === '2025/2026' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'}">
+                    2025/2026
+                  </button>
+                  <button onclick="memberReportsFilterYear='2024/2025'; render();" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${memberReportsFilterYear === '2024/2025' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'}">
+                    2024/2025
+                  </button>
+                </div>
               </div>
             </div>
 
-            ${filteredMyReports.length === 0 ? `
+            ${filteredSchoolReports.length === 0 ? `
               <div class="p-8 rounded-3xl bg-white dark:bg-[#111d3d] border border-slate-200 dark:border-[#1e356d] text-center text-slate-400">
                 <span class="text-3xl block mb-2">📋</span>
-                <p class="text-xs font-semibold">No submitted session reports found for this filter.</p>
+                <p class="text-xs font-semibold">No session reports found for this school or filter.</p>
                 <p class="text-[11px] text-slate-400 mt-1">Select an assigned school above to write and submit a report.</p>
               </div>
-            ` : renderReportCards(filteredMyReports)}
-          </div>
+            ` : renderReportCards(filteredSchoolReports)}
+          </div></div>
         </div>`;
     }
 
@@ -1440,6 +1481,18 @@
       const modal = $("schoolActionModal");
       modal.classList.remove("hidden");
       modal.classList.add("flex");
+    }
+
+    function viewSchoolPreviousReports() {
+      closeSchoolActionModal();
+      if (selectedSchool) {
+        memberReportsFilterSchool = selectedSchool.name;
+      }
+      render();
+      setTimeout(() => {
+        const el = $("memberReportsHistorySection");
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
 
     function closeSchoolActionModal() {
@@ -1739,7 +1792,7 @@
             </div>
 
             <form onsubmit="event.preventDefault(); submitReport();" class="space-y-4">
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase mb-1" for="rf_date">
                     Date of Session <span class="text-fiery-600">*</span>
@@ -1748,20 +1801,19 @@
                   <p class="text-[10px] text-slate-400 mt-1 font-medium">📅 Term: ${termDateNotice}</p>
                 </div>
 
-                <div>
-                  <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase mb-1" for="rf_class">
-                    Class Level <span class="text-fiery-600">*</span>
+                <div class="sm:col-span-2">
+                  <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase mb-1.5">
+                    Class <span class="text-fiery-600">*</span> <span class="text-[10px] text-slate-400 font-normal lowercase">(select all that apply)</span>
                   </label>
-                  <select id="rf_class" required onchange="saveDraft()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-egyptian-600">
-                    <option value="" disabled selected>-- Select Class --</option>
-                    <option value="JSS 1">JSS 1</option>
-                    <option value="JSS 2">JSS 2</option>
-                    <option value="JSS 3">JSS 3</option>
-                    <option value="SS 1">SS 1</option>
-                    <option value="SS 2">SS 2</option>
-                    <option value="SS 3">SS 3</option>
-                    <option value="Tutorial">Tutorial</option>
-                  </select>
+                  <div id="rf_class_checklist" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 p-2.5 rounded-2xl border border-slate-200 dark:border-[#1e356d] bg-slate-50/50 dark:bg-[#0a1128]/50">
+                    ${["JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3", "Tutorial"].map(cls => `
+                      <label class="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#1e356d] bg-white dark:bg-[#111d3d] hover:border-egyptian-500 cursor-pointer text-xs font-bold transition select-none has-[:checked]:bg-egyptian-50 dark:has-[:checked]:bg-egyptian-950/70 has-[:checked]:border-egyptian-600 has-[:checked]:text-egyptian-700 dark:has-[:checked]:text-egyptian-300">
+                        <input type="checkbox" name="rf_class_item" value="${cls}" onchange="saveDraft()" class="w-3.5 h-3.5 rounded text-egyptian-600 accent-egyptian-700 cursor-pointer">
+                        <span>${cls}</span>
+                      </label>
+                    `).join('')}
+                  </div>
+                  <input type="hidden" id="rf_class">
                 </div>
 
                 <div>
@@ -1919,7 +1971,7 @@
       if (currentEditId || !me || !selectedSchool) return;
       const draft = {
         date: $("rf_date") ? $("rf_date").value : "",
-        class_level: $("rf_class") ? $("rf_class").value : "",
+        class_level: getSelectedClasses(),
         students: $("rf_students") ? $("rf_students").value : "",
         attendance: $("rf_attendance") ? $("rf_attendance").value : "",
         details: $("rf_details") ? $("rf_details").value : "",
@@ -1940,7 +1992,7 @@
         const draft = JSON.parse(raw);
         if ($("rf_details") && draft.details) {
           if (draft.date) $("rf_date").value = draft.date;
-          if (draft.class_level && $("rf_class")) $("rf_class").value = draft.class_level;
+          if (draft.class_level) setSelectedClasses(draft.class_level);
           $("rf_students").value = draft.students || "";
           $("rf_attendance").value = draft.attendance || "";
           $("rf_details").value = draft.details || "";
@@ -1962,7 +2014,7 @@
       reportPhotos = [];
       if (me && selectedSchool) localStorage.removeItem(getDraftKey());
       if ($("rf_date")) $("rf_date").value = new Date().toISOString().slice(0, 10);
-      if ($("rf_class")) $("rf_class").selectedIndex = 0;
+      setSelectedClasses("");
       if ($("rf_students")) $("rf_students").value = "";
       if ($("rf_attendance")) $("rf_attendance").value = me ? me.name : "";
       if ($("rf_details")) $("rf_details").value = "";
@@ -1983,7 +2035,7 @@
         school: selectedSchool.name,
         year: selectedYear,
         academic_session: selectedSession,
-        class_level: $("rf_class") ? $("rf_class").value : "",
+        class_level: getSelectedClasses(),
         center_id: selectedSchool.center_id,
         date: $("rf_date").value,
         students: $("rf_students").value,
@@ -2029,7 +2081,7 @@
 
       setTimeout(() => {
         if ($("rf_date")) $("rf_date").value = rep.date ? rep.date.slice(0, 10) : "";
-        if ($("rf_class")) $("rf_class").value = rep.class_level || "";
+        setSelectedClasses(rep.class_level || "");
         if ($("rf_students")) $("rf_students").value = rep.students || "";
         if ($("rf_attendance")) $("rf_attendance").value = rep.attendance || "";
         if ($("rf_details")) $("rf_details").value = rep.details || "";
@@ -3873,7 +3925,7 @@
                 <th style="width:140px;">Meeting Session Time</th>
                 <th style="width:90px; text-align:center;">Academic Year</th>
                 <th style="width:110px; text-align:center;">Academic Session</th>
-                <th style="width:100px; text-align:center;">Class Level</th>
+                <th style="width:100px; text-align:center;">Class</th>
                 <th style="width:120px; text-align:center;">Date of Attendance</th>
                 <th style="width:100px; text-align:right;">Students Count</th>
                 <th style="width:160px;">Reporting Minister</th>
@@ -3920,7 +3972,7 @@
         "Meeting Session Time",
         "Academic Year",
         "Academic Session",
-        "Class Level",
+        "Class",
         "Reporting Minister",
         "Minister Contact",
         "Date of Attendance",
