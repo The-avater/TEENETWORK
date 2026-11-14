@@ -89,4 +89,25 @@ app.delete("/api/reports/:id", auth, wrap(async (req, res) => {
   await q("delete from reports where id=$1 and ($2 or member_id=$3)", [req.params.id, req.user.is_admin, req.user.id]); res.json({ ok: true });
 }));
 
-setup().then(() => app.listen(process.env.PORT || 3000, () => console.log("TEENETWORK running"))).catch(e => { console.error(e); process.exit(1); });
+app.put("/api/password", auth, wrap(async (req, res) => {
+  const r = await q("select password_hash from users where id=$1", [req.user.id]);
+  const np = String(req.body.new_password || "");
+  if (!(await bcrypt.compare(String(req.body.current_password || ""), r.rows[0].password_hash))) return res.status(400).json({ error: "Your current password is wrong." });
+  if (np.length < 6) return res.status(400).json({ error: "The new password must be at least 6 characters." });
+  await q("update users set password_hash=$1 where id=$2", [await bcrypt.hash(np, 10), req.user.id]); res.json({ ok: true });
+}));
+app.put("/api/users/:id/password", auth, admin, wrap(async (req, res) => {
+  const np = String(req.body.password || "");
+  if (np.length < 6) return res.status(400).json({ error: "The password must be at least 6 characters." });
+  await q("update users set password_hash=$1 where id=$2", [await bcrypt.hash(np, 10), req.params.id]); res.json({ ok: true });
+}));
+
+async function adminRecovery() {
+  const pw = process.env.RESET_ADMIN_PASSWORD;
+  if (!pw || !ADMIN_EMAIL) return;
+  if (pw.length < 6) return console.log("RESET_ADMIN_PASSWORD is too short, ignored");
+  const r = await q("update users set password_hash=$1, is_admin=true where email=$2", [await bcrypt.hash(pw, 10), ADMIN_EMAIL]);
+  console.log(r.rowCount ? "Admin password was reset. Remove RESET_ADMIN_PASSWORD now." : "No account found for ADMIN_EMAIL");
+}
+
+setup().then(adminRecovery).then(() => app.listen(process.env.PORT || 3000, () => console.log("TEENETWORK running"))).catch(e => { console.error(e); process.exit(1); });
