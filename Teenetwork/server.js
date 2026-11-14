@@ -31,14 +31,30 @@ if (isPostgres) {
     try {
       localDb = JSON.parse(fs.readFileSync(localDbFile, "utf8"));
     } catch {
-      localDb = { centers: [], users: [], reports: [], password_resets: [] };
+      localDb = { centers: [], users: [], reports: [], password_resets: [], user_centers: [] };
     }
   } else {
     localDb = {
-      centers: [{ id: 1, name: "Lagos Central" }, { id: 2, name: "Abuja Outreach" }],
+      centers: [
+        {
+          id: 1,
+          name: "Lagos Central",
+          location: "St. Jude Hall, 14 Commercial Ave, Yaba, Lagos",
+          session_time: "Thursdays 10:00 AM - 12:30 PM",
+          contact: "Mrs. Folake Davies (+234 802 345 6789)"
+        },
+        {
+          id: 2,
+          name: "Abuja Outreach",
+          location: "Youth Center, Area 10, Garki, Abuja",
+          session_time: "Saturdays 11:00 AM - 2:00 PM",
+          contact: "Pastor Emmanuel (+234 803 987 6543)"
+        }
+      ],
       users: [],
       reports: [],
-      password_resets: []
+      password_resets: [],
+      user_centers: []
     };
     saveLocalDb();
   }
@@ -74,6 +90,7 @@ async function q(sql, p = []) {
   }
   if (s.includes("insert into users")) {
     const id = (localDb.users.reduce((max, u) => Math.max(max, u.id), 0) || 0) + 1;
+    const now = new Date().toISOString();
     const user = {
       id,
       name: p[0],
@@ -81,7 +98,11 @@ async function q(sql, p = []) {
       password_hash: p[2],
       is_admin: Boolean(p[3]),
       center_id: null,
-      last_active_at: new Date().toISOString()
+      center_ids: [],
+      phone: "",
+      bio: "",
+      created_at: now,
+      last_active_at: now
     };
     localDb.users.push(user);
     saveLocalDb();
@@ -91,20 +112,51 @@ async function q(sql, p = []) {
     const user = localDb.users.find(u => u.email.toLowerCase() === p[0].toLowerCase());
     return { rows: user ? [{ id: user.id, password_hash: user.password_hash }] : [] };
   }
-  if (s.includes("select id,name,email,center_id,is_admin from users where id=$1")) {
+  if (s.includes("select id,name,email,center_id,is_admin,phone,bio,created_at,last_active_at from users where id=$1") ||
+      s.includes("select id,name,email,center_id,is_admin from users where id=$1")) {
     const user = localDb.users.find(u => u.id === Number(p[0]));
     return { rows: user ? [{ ...user }] : [] };
   }
-  if (s.includes("select id,name,email,center_id,is_admin,last_active_at from users order by name") ||
+  if (s.includes("update users set name=$1, phone=$2, bio=$3 where id=$4")) {
+    const user = localDb.users.find(u => u.id === Number(p[3]));
+    if (user) {
+      user.name = p[0];
+      user.phone = p[1] || "";
+      user.bio = p[2] || "";
+      saveLocalDb();
+    }
+    return { rowCount: user ? 1 : 0, rows: [] };
+  }
+  if (s.includes("select id,name,email,center_id,is_admin,phone,bio,created_at,last_active_at from users order by name") ||
       s.includes("select id,name,email,center_id,is_admin from users order by name")) {
     const users = [...localDb.users]
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map(u => ({ id: u.id, name: u.name, email: u.email, center_id: u.center_id, is_admin: u.is_admin, last_active_at: u.last_active_at }));
+      .map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        center_id: u.center_id,
+        center_ids: u.center_ids || (u.center_id ? [u.center_id] : []),
+        is_admin: u.is_admin,
+        phone: u.phone || "",
+        bio: u.bio || "",
+        created_at: u.created_at,
+        last_active_at: u.last_active_at
+      }));
     return { rows: users };
   }
   if (s.includes("update users set center_id=$1 where id=$2")) {
     const user = localDb.users.find(u => u.id === Number(p[1]));
-    if (user) { user.center_id = p[0] ? Number(p[0]) : null; saveLocalDb(); }
+    if (user) {
+      const cId = p[0] ? Number(p[0]) : null;
+      user.center_id = cId;
+      if (cId) {
+        user.center_ids = Array.from(new Set([...(user.center_ids || []), cId]));
+      } else {
+        user.center_ids = [];
+      }
+      saveLocalDb();
+    }
     return { rowCount: user ? 1 : 0, rows: [] };
   }
   if (s.includes("update users set password_hash=$1 where id=$2")) {
@@ -131,21 +183,71 @@ async function q(sql, p = []) {
     return { rows: user ? [{ id: user.id, name: user.name }] : [] };
   }
 
+  // user_centers queries
+  if (s.includes("select center_id from user_centers where user_id=$1")) {
+    const user = localDb.users.find(u => u.id === Number(p[0]));
+    const ids = user ? (user.center_ids || (user.center_id ? [user.center_id] : [])) : [];
+    return { rows: ids.map(cid => ({ center_id: cid })) };
+  }
+  if (s.includes("insert into user_centers")) {
+    const userId = Number(p[0]), centerId = Number(p[1]);
+    const user = localDb.users.find(u => u.id === userId);
+    if (user) {
+      user.center_ids = Array.from(new Set([...(user.center_ids || []), centerId]));
+      if (!user.center_id) user.center_id = centerId;
+      saveLocalDb();
+    }
+    return { rows: [] };
+  }
+  if (s.includes("delete from user_centers where user_id=$1 and center_id=$2")) {
+    const userId = Number(p[0]), centerId = Number(p[1]);
+    const user = localDb.users.find(u => u.id === userId);
+    if (user && user.center_ids) {
+      user.center_ids = user.center_ids.filter(c => c !== centerId);
+      if (user.center_id === centerId) {
+        user.center_id = user.center_ids[0] || null;
+      }
+      saveLocalDb();
+    }
+    return { rows: [] };
+  }
+
   // centers queries
   if (s.includes("select * from centers order by name")) {
     const centers = [...localDb.centers].sort((a, b) => a.name.localeCompare(b.name));
     return { rows: centers };
   }
-  if (s.includes("insert into centers(name) values($1)")) {
+  if (s.includes("insert into centers")) {
     const id = (localDb.centers.reduce((max, c) => Math.max(max, c.id), 0) || 0) + 1;
-    localDb.centers.push({ id, name: p[0] });
+    const center = {
+      id,
+      name: p[0],
+      location: p[1] || "",
+      session_time: p[2] || "",
+      contact: p[3] || ""
+    };
+    localDb.centers.push(center);
     saveLocalDb();
     return { rows: [{ id }] };
   }
+  if (s.includes("update centers set")) {
+    const cId = Number(p[4]);
+    const center = localDb.centers.find(c => c.id === cId);
+    if (center) {
+      center.name = p[0];
+      center.location = p[1] || "";
+      center.session_time = p[2] || "";
+      center.contact = p[3] || "";
+      saveLocalDb();
+    }
+    return { rowCount: center ? 1 : 0, rows: [] };
+  }
   if (s.includes("delete from centers where id=$1")) {
     localDb.centers = localDb.centers.filter(c => c.id !== Number(p[0]));
-    // Set center_id null for associated users
-    localDb.users.forEach(u => { if (u.center_id === Number(p[0])) u.center_id = null; });
+    localDb.users.forEach(u => {
+      if (u.center_id === Number(p[0])) u.center_id = null;
+      if (u.center_ids) u.center_ids = u.center_ids.filter(id => id !== Number(p[0]));
+    });
     localDb.reports = localDb.reports.filter(r => r.center_id !== Number(p[0]));
     saveLocalDb();
     return { rows: [] };
@@ -155,6 +257,13 @@ async function q(sql, p = []) {
   if (s.includes("select * from reports where center_id=$1 order by date desc, id desc")) {
     const reports = localDb.reports
       .filter(r => r.center_id === Number(p[0]))
+      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+    return { rows: reports };
+  }
+  if (s.includes("select * from reports where center_id = any($1)")) {
+    const cids = Array.isArray(p[0]) ? p[0].map(Number) : [Number(p[0])];
+    const reports = localDb.reports
+      .filter(r => cids.includes(Number(r.center_id)))
       .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
     return { rows: reports };
   }
@@ -243,17 +352,60 @@ async function q(sql, p = []) {
 
 async function setup() {
   if (isPostgres) {
-    await q(`create table if not exists centers (id serial primary key, name text not null);
-    create table if not exists users (id serial primary key, name text not null, email text unique not null,
-      password_hash text not null, center_id int references centers on delete set null, is_admin boolean not null default false,
-      last_active_at timestamptz default now());
-    create table if not exists reports (id serial primary key, center_id int references centers on delete cascade,
-      member_id int references users on delete set null, member_name text, school text not null, date date not null,
-      attendance text, details text not null, students int not null, remarks text, challenges text, photos text,
-      status text default 'submitted', created_at timestamptz default now(), updated_at timestamptz default now());
-    create table if not exists password_resets (token_hash text primary key, user_id int references users on delete cascade, expires_at timestamptz not null);`);
+    await q(`create table if not exists centers (
+      id serial primary key,
+      name text not null,
+      location text,
+      session_time text,
+      contact text
+    );
+    create table if not exists users (
+      id serial primary key,
+      name text not null,
+      email text unique not null,
+      password_hash text not null,
+      center_id int references centers on delete set null,
+      is_admin boolean not null default false,
+      phone text,
+      bio text,
+      created_at timestamptz default now(),
+      last_active_at timestamptz default now()
+    );
+    create table if not exists user_centers (
+      user_id int references users on delete cascade,
+      center_id int references centers on delete cascade,
+      primary key (user_id, center_id)
+    );
+    create table if not exists reports (
+      id serial primary key,
+      center_id int references centers on delete cascade,
+      member_id int references users on delete set null,
+      member_name text,
+      school text not null,
+      date date not null,
+      attendance text,
+      details text not null,
+      students int not null,
+      remarks text,
+      challenges text,
+      photos text,
+      status text default 'submitted',
+      created_at timestamptz default now(),
+      updated_at timestamptz default now()
+    );
+    create table if not exists password_resets (
+      token_hash text primary key,
+      user_id int references users on delete cascade,
+      expires_at timestamptz not null
+    );`);
 
     // Migrations for existing databases
+    await q(`alter table centers add column if not exists location text;`).catch(() => {});
+    await q(`alter table centers add column if not exists session_time text;`).catch(() => {});
+    await q(`alter table centers add column if not exists contact text;`).catch(() => {});
+    await q(`alter table users add column if not exists phone text;`).catch(() => {});
+    await q(`alter table users add column if not exists bio text;`).catch(() => {});
+    await q(`alter table users add column if not exists created_at timestamptz default now();`).catch(() => {});
     await q(`alter table reports add column if not exists photos text;`).catch(() => {});
     await q(`alter table reports add column if not exists status text default 'submitted';`).catch(() => {});
     await q(`alter table reports add column if not exists updated_at timestamptz default now();`).catch(() => {});
@@ -262,7 +414,6 @@ async function setup() {
 }
 
 const app = express();
-// Increase body limit to 30mb for image uploads
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true, limit: "30mb" }));
 app.use(cookieParser());
@@ -273,12 +424,38 @@ const wrap = fn => (req, res) => fn(req, res).catch(e => {
   res.status(500).json({ error: "Something went wrong" });
 });
 
+// Helper to fetch full centers assigned to a user
+async function getUserCenters(user, allCenters) {
+  if (user.is_admin) {
+    return allCenters;
+  }
+  let assignedIds = [];
+  if (isPostgres) {
+    const ucRes = await q("select center_id from user_centers where user_id=$1", [user.id]);
+    assignedIds = ucRes.rows.map(r => r.center_id);
+  } else {
+    assignedIds = user.center_ids || [];
+  }
+  if (user.center_id && !assignedIds.includes(user.center_id)) {
+    assignedIds.push(user.center_id);
+  }
+  return allCenters.filter(c => assignedIds.includes(c.id));
+}
+
 async function auth(req, res, next) {
   try {
-    const { id } = jwt.verify(req.cookies.token || "", SECRET);
-    const r = await q("select id,name,email,center_id,is_admin from users where id=$1", [id]);
+    let token = req.cookies.token;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.slice(7).trim();
+    }
+    if (!token) throw 0;
+
+    const { id } = jwt.verify(token, SECRET);
+    const r = await q("select id,name,email,center_id,is_admin,phone,bio,created_at,last_active_at from users where id=$1", [id]);
     if (!r.rows[0]) throw 0;
     req.user = r.rows[0];
+    req.token = token;
 
     // Keep track of member active status asynchronously
     q("update users set last_active_at=now() where id=$1", [id]).catch(() => {});
@@ -299,9 +476,10 @@ function login(res, id) {
     secure: process.env.NODE_ENV === "production",
     maxAge: 30 * 864e5
   });
+  return token;
 }
 
-/* ---- Authentication Routes ---- */
+/* ---- Authentication & Multi-Account Routes ---- */
 app.post("/api/signup", wrap(async (req, res) => {
   const name = String(req.body.name || "").trim();
   const email = String(req.body.email || "").trim().toLowerCase();
@@ -324,18 +502,42 @@ app.post("/api/signup", wrap(async (req, res) => {
   const r = await q("insert into users(name,email,password_hash,is_admin) values($1,$2,$3,$4) returning id",
     [name, email, await bcrypt.hash(pw, 10), isAdmin]);
 
-  login(res, r.rows[0].id);
-  res.json({ ok: true, is_admin: isAdmin });
+  const token = login(res, r.rows[0].id);
+  res.json({
+    ok: true,
+    is_admin: isAdmin,
+    token,
+    user: { id: r.rows[0].id, name, email, is_admin: isAdmin }
+  });
 }));
 
 app.post("/api/login", wrap(async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
-  const r = await q("select id,password_hash from users where email=$1", [email]);
+  const r = await q("select id,password_hash,name,is_admin from users where email=$1", [email]);
   if (!r.rows[0] || !(await bcrypt.compare(String(req.body.password || ""), r.rows[0].password_hash))) {
     return res.status(400).json({ error: "Wrong email or password." });
   }
-  login(res, r.rows[0].id);
-  res.json({ ok: true });
+  const token = login(res, r.rows[0].id);
+  res.json({
+    ok: true,
+    token,
+    user: { id: r.rows[0].id, name: r.rows[0].name, email, is_admin: r.rows[0].is_admin }
+  });
+}));
+
+// Multi-account instant switcher endpoint
+app.post("/api/switch-account", wrap(async (req, res) => {
+  const token = String(req.body.token || "");
+  if (!token) return res.status(400).json({ error: "Missing account token" });
+  try {
+    const { id } = jwt.verify(token, SECRET);
+    const r = await q("select id,name,email,center_id,is_admin from users where id=$1", [id]);
+    if (!r.rows[0]) return res.status(404).json({ error: "User not found" });
+    login(res, id);
+    res.json({ ok: true, user: r.rows[0] });
+  } catch {
+    res.status(401).json({ error: "Session expired for this account. Please log in again." });
+  }
 }));
 
 app.post("/api/logout", (req, res) => {
@@ -343,24 +545,50 @@ app.post("/api/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/me", auth, (req, res) => res.json(req.user));
+app.get("/api/me", auth, wrap(async (req, res) => {
+  const allCenters = (await q("select * from centers order by name")).rows;
+  const userCenters = await getUserCenters(req.user, allCenters);
+  res.json({
+    ...req.user,
+    token: req.token,
+    centers: userCenters
+  });
+}));
+
+/* ---- User Profile Update ---- */
+app.put("/api/profile", auth, wrap(async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const phone = String(req.body.phone || "").trim();
+  const bio = String(req.body.bio || "").trim();
+
+  if (!name) return res.status(400).json({ error: "Name cannot be empty." });
+
+  await q("update users set name=$1, phone=$2, bio=$3 where id=$4", [name, phone, bio, req.user.id]);
+  res.json({ ok: true });
+}));
 
 /* ---- Data & Reporting Routes ---- */
 app.get("/api/data", auth, wrap(async (req, res) => {
   const u = req.user;
   const centers = (await q("select * from centers order by name")).rows;
+  const userCenters = await getUserCenters(u, centers);
+  const userCenterIds = userCenters.map(c => c.id);
 
-  const reports = u.is_admin
-    ? (await q("select * from reports order by date desc, id desc")).rows
-    : u.center_id
-      ? (await q("select * from reports where center_id=$1 order by date desc, id desc", [u.center_id])).rows
-      : [];
+  let reports = [];
+  if (u.is_admin) {
+    reports = (await q("select * from reports order by date desc, id desc")).rows;
+  } else if (userCenterIds.length > 0) {
+    if (isPostgres) {
+      reports = (await q("select * from reports where center_id = any($1) order by date desc, id desc", [userCenterIds])).rows;
+    } else {
+      reports = (await q("select * from reports where center_id = any($1)", [userCenterIds])).rows;
+    }
+  }
 
   const rawUsers = u.is_admin
-    ? (await q("select id,name,email,center_id,is_admin,last_active_at from users order by name")).rows
+    ? (await q("select id,name,email,center_id,is_admin,phone,bio,created_at,last_active_at from users order by name")).rows
     : [];
 
-  // Compute stats per user for admin activity tracking
   const users = rawUsers.map(user => {
     const userReports = reports.filter(rep => rep.member_id === user.id);
     const studentsReached = userReports.reduce((acc, rep) => acc + (Number(rep.students) || 0), 0);
@@ -371,7 +599,6 @@ app.get("/api/data", auth, wrap(async (req, res) => {
     };
   });
 
-  // Calculate executive KPI summary stats
   const totalStudents = reports.reduce((acc, rep) => acc + (Number(rep.students) || 0), 0);
   const totalReports = reports.length;
   const uniqueSchools = [...new Set(reports.map(r => (r.school || "").trim().toLowerCase()).filter(Boolean))].length;
@@ -383,6 +610,7 @@ app.get("/api/data", auth, wrap(async (req, res) => {
 
   res.json({
     centers,
+    user_centers: userCenters,
     reports,
     users,
     stats: {
@@ -396,9 +624,28 @@ app.get("/api/data", auth, wrap(async (req, res) => {
 
 /* ---- Centre Management ---- */
 app.post("/api/centers", auth, admin, wrap(async (req, res) => {
-  const n = String(req.body.name || "").trim();
-  if (!n) return res.status(400).json({ error: "Enter a centre name" });
-  await q("insert into centers(name) values($1)", [n]);
+  const name = String(req.body.name || "").trim();
+  const location = String(req.body.location || "").trim();
+  const session_time = String(req.body.session_time || "").trim();
+  const contact = String(req.body.contact || "").trim();
+
+  if (!name) return res.status(400).json({ error: "Enter a centre name" });
+
+  await q("insert into centers(name, location, session_time, contact) values($1, $2, $3, $4)",
+    [name, location, session_time, contact]);
+  res.json({ ok: true });
+}));
+
+app.put("/api/centers/:id", auth, admin, wrap(async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const location = String(req.body.location || "").trim();
+  const session_time = String(req.body.session_time || "").trim();
+  const contact = String(req.body.contact || "").trim();
+
+  if (!name) return res.status(400).json({ error: "Enter a centre name" });
+
+  await q("update centers set name=$1, location=$2, session_time=$3, contact=$4 where id=$5",
+    [name, location, session_time, contact, req.params.id]);
   res.json({ ok: true });
 }));
 
@@ -408,17 +655,49 @@ app.delete("/api/centers/:id", auth, admin, wrap(async (req, res) => {
 }));
 
 app.put("/api/users/:id/center", auth, admin, wrap(async (req, res) => {
-  await q("update users set center_id=$1 where id=$2", [req.body.center_id || null, req.params.id]);
+  const centerId = req.body.center_id ? Number(req.body.center_id) : null;
+  const action = req.body.action || "set";
+
+  if (action === "add" && centerId) {
+    if (isPostgres) {
+      await q("insert into user_centers(user_id, center_id) values($1, $2) on conflict do nothing", [req.params.id, centerId]);
+    } else {
+      await q("insert into user_centers(user_id, center_id) values($1, $2)", [req.params.id, centerId]);
+    }
+  } else if (action === "remove" && centerId) {
+    await q("delete from user_centers where user_id=$1 and center_id=$2", [req.params.id, centerId]);
+  } else {
+    await q("update users set center_id=$1 where id=$2", [centerId, req.params.id]);
+    if (centerId) {
+      if (isPostgres) {
+        await q("insert into user_centers(user_id, center_id) values($1, $2) on conflict do nothing", [req.params.id, centerId]);
+      } else {
+        await q("insert into user_centers(user_id, center_id) values($1, $2)", [req.params.id, centerId]);
+      }
+    }
+  }
+
   res.json({ ok: true });
 }));
 
 /* ---- Report Submission & Editing ---- */
 app.post("/api/reports", auth, wrap(async (req, res) => {
   const u = req.user, b = req.body;
-  const centerId = u.center_id || (u.is_admin && b.center_id ? Number(b.center_id) : null);
+  const allCenters = (await q("select * from centers order by name")).rows;
+  const userCenters = await getUserCenters(u, allCenters);
+  const userCenterIds = userCenters.map(c => c.id);
+
+  let centerId = b.center_id ? Number(b.center_id) : null;
+  if (!centerId) {
+    centerId = userCenterIds[0] || u.center_id;
+  }
 
   if (!centerId) {
     return res.status(403).json({ error: "You have not been assigned to a centre yet. Contact your administrator." });
+  }
+
+  if (!u.is_admin && !userCenterIds.includes(centerId)) {
+    return res.status(403).json({ error: "You can only submit reports for centres you are assigned to." });
   }
 
   if (!b.school || !b.date || !b.details || b.students === "" || isNaN(Number(b.students))) {
