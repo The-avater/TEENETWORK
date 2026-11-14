@@ -27,6 +27,7 @@ button.del{background:transparent;color:var(--dn);border:1px solid var(--bd);pad
 <script>
 async function api(m,u,b){const r=await fetch(u,{method:m,headers:{"Content-Type":"application/json"},body:b?JSON.stringify(b):undefined});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||"Error");return d}
 let me=null,centers=[],profiles=[],reports=[],tab="reports",fc="",mode="login",msg="",err="";
+let resetToken=new URLSearchParams(location.search).get("reset");if(resetToken)mode="reset";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const cName=id=>(centers.find(c=>c.id===id)||{}).name||"Unknown centre";
@@ -41,12 +42,13 @@ boot();
 function render(){
   const a=$("app");a.className="";
   const note=(msg?`<p class="ok">${msg}</p>`:"")+(err?`<p class="er">${esc(err)}</p>`:"");
-  a.innerHTML=note+(!me?authView():me.is_admin?adminView():memberView())+(me?pwCard():"");
+  a.innerHTML=note+(resetToken&&mode==="reset"?resetView():(!me?authView():me.is_admin?adminView():memberView())+(me?pwCard():""));
 }
 function flash(m,e){msg=m||"";err=e||"";render();setTimeout(()=>{msg="";err="";render()},4000)}
 
 /* ---- Login / Sign up ---- */
 function authView(){
+  if(mode==="forgot")return forgotView();
   const s=mode==="signup";
   return `<div class="card"><h2>${s?"Create your account":"Log in"}</h2>
   ${s?'<label for="nm">Full name</label><input id="nm" autocomplete="name">':""}
@@ -54,12 +56,17 @@ function authView(){
   <label for="pw">Password</label><input id="pw" type="password" autocomplete="${s?"new-password":"current-password"}" placeholder="At least 6 characters">
   <button onclick="${s?"signUp()":"logIn()"}">${s?"Sign up":"Log in"}</button>
   <button class="sec" onclick="mode='${s?"login":"signup"}';msg='';err='';render()">${s?"I already have an account":"Create an account"}</button>
-  ${s?"":'<p class="mu">Forgot your password? Ask your admin to reset it. They will give you a temporary password. After you log in, change it using "Change my password" at the bottom of the page.</p>'}</div>`;
+  ${s?"":'<button class="sec" onclick="setMode(\'forgot\')">Forgot password?</button>'}</div>`;
 }
 async function signUp(){try{await api("POST","/api/signup",{name:$("nm").value,email:$("em").value,password:$("pw").value});await boot()}catch(e){flash("",e.message)}}
 async function logIn(){try{await api("POST","/api/login",{email:$("em").value,password:$("pw").value});await boot()}catch(e){flash("",e.message)}}
 
 /* ---- Admin ---- */
+function setMode(m){mode=m;msg="";err="";render()}
+function forgotView(){return `<div class="card"><h2>Forgot password</h2><p class="mu">Enter your email and we will send you a link to choose a new password.</p><label for="em">Email</label><input id="em" type="email" autocomplete="email"><button onclick="sendLink()">Send reset link</button><button class="sec" onclick="setMode('login')">Back to log in</button></div>`}
+async function sendLink(){try{await api("POST","/api/forgot",{email:$("em").value});flash("If that email is registered, a reset link has been sent. Check your inbox and spam folder.")}catch(e){flash("",e.message)}}
+function resetView(){return `<div class="card"><h2>Choose a new password</h2><label for="rp">New password</label><input id="rp" type="password" autocomplete="new-password" placeholder="At least 6 characters"><button onclick="doReset()">Save new password</button></div>`}
+async function doReset(){try{await api("POST","/api/reset",{token:resetToken,password:$("rp").value});resetToken=null;history.replaceState(null,"","/");mode="login";flash("Password changed. You can now log in.")}catch(e){flash("",e.message)}}
 function pwCard(){
   return `<div class="card"><h2>Change my password</h2><label for="op">Current password</label><input id="op" type="password" autocomplete="current-password"><label for="np">New password</label><input id="np" type="password" autocomplete="new-password" placeholder="At least 6 characters"><button onclick="changePw()">Change password</button></div>`;
 }
