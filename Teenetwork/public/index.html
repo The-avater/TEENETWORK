@@ -292,7 +292,10 @@
 
         <div>
           <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="add_pw">Password</label>
-          <input id="add_pw" type="password" required minlength="6" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+          <div class="relative">
+            <input id="add_pw" type="password" required minlength="6" autocomplete="current-password" class="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+            <button type="button" id="toggleAddPwBtn" onclick="togglePasswordVisibility('add_pw', 'toggleAddPwBtn')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm focus:outline-none" title="Show/Hide Password">👁️</button>
+          </div>
         </div>
 
         <button type="submit" id="addAccountSubmitBtn" class="w-full py-2.5 px-4 bg-egyptian-700 hover:bg-egyptian-800 text-white font-bold text-xs rounded-xl shadow mt-2">
@@ -367,15 +370,24 @@
       <div class="space-y-3.5">
         <div>
           <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="modalCurrPw">Current Password</label>
-          <input id="modalCurrPw" type="password" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs focus:ring-1 focus:ring-egyptian-600 outline-none">
+          <div class="relative">
+            <input id="modalCurrPw" type="password" autocomplete="current-password" class="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs focus:ring-1 focus:ring-egyptian-600 outline-none">
+            <button type="button" id="toggleModalCurrPw" onclick="togglePasswordVisibility('modalCurrPw', 'toggleModalCurrPw')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm focus:outline-none" title="Show/Hide Password">👁️</button>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="modalNewPw">New Password (min 6 characters)</label>
-          <input id="modalNewPw" type="password" minlength="6" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs focus:ring-1 focus:ring-egyptian-600 outline-none">
+          <div class="relative">
+            <input id="modalNewPw" type="password" minlength="6" autocomplete="new-password" class="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs focus:ring-1 focus:ring-egyptian-600 outline-none">
+            <button type="button" id="toggleModalNewPw" onclick="togglePasswordVisibility('modalNewPw', 'toggleModalNewPw')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm focus:outline-none" title="Show/Hide Password">👁️</button>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="modalConfirmPw">Confirm New Password</label>
-          <input id="modalConfirmPw" type="password" minlength="6" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs focus:ring-1 focus:ring-egyptian-600 outline-none">
+          <div class="relative">
+            <input id="modalConfirmPw" type="password" minlength="6" autocomplete="new-password" class="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs focus:ring-1 focus:ring-egyptian-600 outline-none">
+            <button type="button" id="toggleModalConfirmPw" onclick="togglePasswordVisibility('modalConfirmPw', 'toggleModalConfirmPw')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm focus:outline-none" title="Show/Hide Password">👁️</button>
+          </div>
         </div>
 
         <div class="pt-4 border-t border-slate-100 dark:border-[#1e356d] flex justify-end space-x-2">
@@ -396,6 +408,50 @@
       </button>
       <img id="lightboxImg" src="" alt="Enlarged report photo" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl">
       <p id="lightboxCaption" class="text-slate-300 text-sm mt-3 text-center"></p>
+    </div>
+  </div>
+
+  <!-- Modal 6: Password Reset Notification Modal -->
+  <div id="resetNoticeModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 animate-fade-in">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#1e356d] mb-4">
+        <div>
+          <h3 class="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🔑 Password Reset Successful</span>
+          </h3>
+          <p class="text-xs text-slate-500">Share these login details with the member.</p>
+        </div>
+        <button onclick="closeResetNoticeModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <div class="space-y-3.5">
+        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-[#0a1128]/70 border border-slate-200 dark:border-[#1e356d]">
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Member Name</p>
+          <p id="rnmName" class="text-sm font-black text-slate-900 dark:text-white"></p>
+          
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1">New Reset Password</p>
+          <div class="flex items-center justify-between bg-white dark:bg-[#16254f] p-2.5 rounded-xl border border-slate-200 dark:border-[#1e356d]">
+            <code id="rnmPassword" class="text-xs font-mono font-bold text-egyptian-700 dark:text-egyptian-300">teenetwork2026</code>
+            <button type="button" onclick="copyResetPasswordText()" class="text-[11px] font-bold text-egyptian-700 dark:text-egyptian-300 hover:underline">Copy</button>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-blue-50 dark:bg-egyptian-950/40 border border-blue-200 dark:border-egyptian-800 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+          📋 <strong>Auto-Copied:</strong> The complete message with login instructions has been copied to your clipboard. You can paste it directly to the member on WhatsApp or SMS.
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <a id="rnmWhatsAppBtn" href="#" target="_blank" rel="noopener noreferrer" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-2 transition">
+            <span>📲 Send to Member on WhatsApp</span>
+          </a>
+          <button type="button" onclick="copyResetFullMessage()" id="rnmCopyBtn" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition">
+            📋 Copy Message Again
+          </button>
+          <button type="button" onclick="closeResetNoticeModal()" class="w-full py-2 text-slate-400 hover:text-slate-600 text-xs font-bold text-center">
+            Done
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -476,7 +532,15 @@
       const acc = savedAccounts.find(a => a.id === accId);
       if (!acc) return;
       try {
-        await api("POST", "/api/switch-account", { token: acc.token });
+        if (acc.token) {
+          localStorage.setItem("tn_active_token", acc.token);
+        }
+        localStorage.setItem("tn_last_active_account", acc.id);
+        const res = await api("POST", "/api/switch-account", { token: acc.token });
+        if (res && res.token) {
+          localStorage.setItem("tn_active_token", res.token);
+          saveAccountToDevice({ id: acc.id, name: acc.name, email: acc.email, is_admin: acc.is_admin, token: res.token });
+        }
         flash(`Switched account to ${acc.name}!`);
         toggleHamburgerMenu(false);
         await boot();
@@ -485,13 +549,74 @@
       }
     }
 
-    /* API Helper */
+    /* API Helper (Dual cookie + Bearer header support) */
     async function api(m, u, b) {
       const opts = { method: m, headers: { "Content-Type": "application/json" } };
+      const token = localStorage.getItem("tn_active_token");
+      if (token) {
+        opts.headers["Authorization"] = `Bearer ${token}`;
+      }
       if (b) opts.body = JSON.stringify(b);
       const r = await fetch(u, opts);
       let d = {};
       try { d = await r.json(); } catch {}
+      if (!r.ok) throw new Error(d.error || `Server responded with ${r.status}`);
+      return d;
+    }
+
+    /* Password Visibility Toggle */
+    function togglePasswordVisibility(inputId, btnId) {
+      const input = $(inputId);
+      const btn = $(btnId);
+      if (!input) return;
+      if (input.type === "password") {
+        input.type = "text";
+        if (btn) btn.innerHTML = "🙈";
+      } else {
+        input.type = "password";
+        if (btn) btn.innerHTML = "👁️";
+      }
+    }
+
+    /* Admin Password Reset Notification Modal Helpers */
+    let lastResetMessage = "";
+    let lastResetPassword = "";
+
+    function showResetNoticeModal(name, newPassword, fullMessage, phone) {
+      lastResetMessage = fullMessage;
+      lastResetPassword = newPassword;
+      $("rnmName").textContent = name;
+      $("rnmPassword").textContent = newPassword;
+
+      let cleanPhone = (phone || "").replace(/[^0-9]/g, "");
+      if (cleanPhone.startsWith("0") && cleanPhone.length === 11) {
+        cleanPhone = "234" + cleanPhone.slice(1);
+      }
+      const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(fullMessage)}` : `https://wa.me/?text=${encodeURIComponent(fullMessage)}`;
+      $("rnmWhatsAppBtn").href = waUrl;
+
+      const modal = $("resetNoticeModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeResetNoticeModal() {
+      const modal = $("resetNoticeModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function copyResetPasswordText() {
+      navigator.clipboard.writeText(lastResetPassword || "teenetwork2026");
+      flash("Password copied to clipboard!");
+    }
+
+    function copyResetFullMessage() {
+      if (lastResetMessage) {
+        navigator.clipboard.writeText(lastResetMessage);
+        flash("Notification message copied to clipboard!");
+      }
+    }
       if (!r.ok) throw new Error(d.error || `Server responded with ${r.status}`);
       return d;
     }
@@ -592,10 +717,30 @@
         me = null;
       }
 
+      // If session cookie failed or was cleared, try to auto-restore from saved device accounts!
+      if (!me && savedAccounts.length > 0) {
+        const lastActiveId = localStorage.getItem("tn_last_active_account");
+        const candidate = (lastActiveId && savedAccounts.find(a => a.id == lastActiveId)) || savedAccounts[0];
+        if (candidate && candidate.token) {
+          try {
+            localStorage.setItem("tn_active_token", candidate.token);
+            const sw = await api("POST", "/api/switch-account", { token: candidate.token });
+            if (sw && sw.token) localStorage.setItem("tn_active_token", sw.token);
+            me = await api("GET", "/api/me");
+          } catch {
+            // Token expired or invalid
+          }
+        }
+      }
+
       const roleBadge = $("roleBadge");
       const hamburger = $("hamburgerBtn");
 
       if (me) {
+        if (me.token) {
+          localStorage.setItem("tn_active_token", me.token);
+        }
+        localStorage.setItem("tn_last_active_account", me.id);
         saveAccountToDevice({
           id: me.id,
           name: me.name,
@@ -681,6 +826,8 @@
       const currentId = me.id;
       savedAccounts = savedAccounts.filter(a => a.id !== currentId);
       localStorage.setItem("tn_device_accounts", JSON.stringify(savedAccounts));
+      localStorage.removeItem("tn_active_token");
+      localStorage.removeItem("tn_last_active_account");
 
       if (savedAccounts.length > 0) {
         await switchAccount(savedAccounts[0].id);
@@ -692,6 +839,8 @@
 
     async function signOutAllAccounts() {
       localStorage.removeItem("tn_device_accounts");
+      localStorage.removeItem("tn_active_token");
+      localStorage.removeItem("tn_last_active_account");
       savedAccounts = [];
       await api("POST", "/api/logout");
       await boot();
@@ -1515,7 +1664,16 @@
                     <td class="px-4 py-3 text-center font-bold">${p.report_count || 0}</td>
                     <td class="px-4 py-3 text-center font-black text-egyptian-700 dark:text-egyptian-300">${(p.students_reached || 0).toLocaleString()}</td>
                     <td class="px-4 py-3 text-right">
-                      ${!p.is_admin ? `<button onclick="promptResetPassword(${p.id}, '${esc(p.name)}')" class="text-xs text-slate-500 hover:text-fiery-600">Reset Password</button>` : ''}
+                      ${!p.is_admin ? `
+                        <div class="flex items-center justify-end space-x-1.5">
+                          <button onclick="quickResetPassword(${p.id}, '${esc(p.name)}', '${esc(p.phone || '')}', '${esc(p.email)}')" class="px-2.5 py-1 rounded-lg bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-700 dark:text-egyptian-300 hover:bg-egyptian-100 dark:hover:bg-egyptian-900 border border-egyptian-200 dark:border-egyptian-800 font-bold text-[11px] shadow-sm flex items-center space-x-1" title="1-Click Reset to memorable default (teenetwork2026)">
+                            <span>⚡ Quick Reset</span>
+                          </button>
+                          <button onclick="promptResetPassword(${p.id}, '${esc(p.name)}', '${esc(p.phone || '')}')" class="px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-[10px] font-semibold" title="Set a custom password">
+                            Custom
+                          </button>
+                        </div>
+                      ` : ''}
                     </td>
                   </tr>`).join('')}
               </tbody>
@@ -1524,12 +1682,45 @@
         </div>`;
     }
 
-    async function promptResetPassword(userId, name) {
-      const pw = prompt(`Enter a new temporary password for ${name}:`);
-      if (!pw || pw.length < 6) return alert("Password must be at least 6 characters.");
+    async function quickResetPassword(userId, name, phone, email) {
+      const confirmed = confirm(`Reset the password for "${name}" to default: teenetwork2026?`);
+      if (!confirmed) return;
+
+      try {
+        await api("PUT", `/api/users/${userId}/password`, { password: "teenetwork2026" });
+        const appUrl = window.location.origin;
+        const msg = `Hello ${name}, your password for TEENETWORK has been reset to:\nteenetwork2026\n\nLog in here: ${appUrl}\n(Make sure to check "Remember my password" on the login screen so your device keeps you logged in!)`;
+
+        try {
+          await navigator.clipboard.writeText(msg);
+          flash(`Password reset for ${name}! Details auto-copied to your clipboard.`);
+        } catch {
+          flash(`Password reset for ${name} to teenetwork2026.`);
+        }
+
+        showResetNoticeModal(name, "teenetwork2026", msg, phone);
+      } catch (e) {
+        flash("", e.message);
+      }
+    }
+
+    async function promptResetPassword(userId, name, phone) {
+      const pw = prompt(`Enter a new temporary password for ${name}:`, "teenetwork2026");
+      if (!pw) return;
+      if (pw.length < 6) return alert("Password must be at least 6 characters.");
       try {
         await api("PUT", `/api/users/${userId}/password`, { password: pw });
-        flash(`Password updated for ${name}.`);
+        const appUrl = window.location.origin;
+        const msg = `Hello ${name}, your password for TEENETWORK has been updated to:\n${pw}\n\nLog in here: ${appUrl}\n(Check "Remember my password" so you stay signed in!)`;
+
+        try {
+          await navigator.clipboard.writeText(msg);
+          flash(`Password updated for ${name}! Details copied to clipboard.`);
+        } catch {
+          flash(`Password updated for ${name}.`);
+        }
+
+        showResetNoticeModal(name, pw, msg, phone);
       } catch (e) {
         flash("", e.message);
       }
@@ -1800,6 +1991,7 @@
           res = await api("POST", "/api/login", { email: em, password: pw });
         }
         if (res.user && res.token) {
+          localStorage.setItem("tn_active_token", res.token);
           saveAccountToDevice({ id: res.user.id, name: res.user.name, email: res.user.email, is_admin: res.user.is_admin, token: res.token });
         }
         flash(`Added and switched to ${res.user?.name || em}!`);
@@ -1818,6 +2010,7 @@
       if (mode === "forgot") return forgotView();
       const s = mode === "signup";
       loadSavedAccounts();
+      const rememberedEmail = localStorage.getItem("tn_remembered_email") || "";
 
       return `
         <div class="max-w-md mx-auto w-full bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-xl shadow-egyptian-950/5">
@@ -1829,22 +2022,26 @@
             <p class="text-xs text-slate-500 mt-1">${s ? "Sign up to log outreach sessions & impact" : "Log in to record and view session reports"}</p>
           </div>
 
-          ${savedAccounts.length > 0 ? `
-            <div class="mb-5 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0a1128]/70 border border-slate-200 dark:border-[#1e356d]">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Saved Accounts on this Device</p>
-              <div class="space-y-1.5">
+          ${savedAccounts.length > 0 && !s ? `
+            <div class="mb-5 p-4 rounded-2xl bg-gradient-to-r from-egyptian-50 to-blue-50/50 dark:from-[#111d3d] dark:to-[#0a1128] border-2 border-egyptian-200 dark:border-egyptian-800 shadow-sm">
+              <div class="flex items-center space-x-1.5 mb-2.5">
+                <span class="text-xs">⚡</span>
+                <p class="text-[11px] font-black uppercase tracking-wider text-egyptian-800 dark:text-egyptian-300">Fast Sign-In on this Device</p>
+              </div>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2.5 leading-snug">Tap your account to enter immediately without typing your password:</p>
+              <div class="space-y-2">
                 ${savedAccounts.map(acc => `
-                  <button onclick="switchAccount(${acc.id})" class="w-full flex items-center justify-between p-2 rounded-xl hover:bg-white dark:hover:bg-[#16254f] border border-transparent hover:border-slate-200 dark:hover:border-[#1e356d] transition text-left">
-                    <div class="flex items-center space-x-2 truncate">
-                      <div class="w-6 h-6 rounded-lg ${acc.is_admin ? 'bg-fiery-600' : 'bg-egyptian-700'} text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                  <button type="button" onclick="switchAccount(${acc.id})" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#16254f] border border-slate-200 dark:border-[#1e356d] hover:border-egyptian-500 dark:hover:border-egyptian-400 hover:shadow-md transition text-left group">
+                    <div class="flex items-center space-x-2.5 truncate">
+                      <div class="w-8 h-8 rounded-xl ${acc.is_admin ? 'bg-fiery-600' : 'bg-egyptian-700'} text-white font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
                         ${(acc.name || "U")[0].toUpperCase()}
                       </div>
                       <div class="truncate">
-                        <span class="text-xs font-bold text-slate-900 dark:text-white">${esc(acc.name)}</span>
-                        <span class="text-[10px] text-slate-400 block">${esc(acc.email)}</span>
+                        <span class="text-xs font-bold text-slate-900 dark:text-white group-hover:text-egyptian-700 dark:group-hover:text-egyptian-300 block">${esc(acc.name)}</span>
+                        <span class="text-[10px] text-slate-400 block">${esc(acc.email)} &bull; ${acc.is_admin ? 'Admin' : 'Member'}</span>
                       </div>
                     </div>
-                    <span class="text-[10px] font-bold text-egyptian-700 dark:text-egyptian-300">Switch &rarr;</span>
+                    <span class="text-[11px] font-bold px-3 py-1 rounded-lg bg-egyptian-700 text-white group-hover:bg-egyptian-800 shadow transition shrink-0">Enter &rarr;</span>
                   </button>`).join('')}
               </div>
             </div>` : ''}
@@ -1853,17 +2050,32 @@
             ${s ? `
               <div>
                 <label class="block text-xs font-bold uppercase mb-1" for="nm">Full Name</label>
-                <input id="nm" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+                <input id="nm" name="name" required autocomplete="name" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
               </div>` : ''}
 
             <div>
               <label class="block text-xs font-bold uppercase mb-1" for="em">Email Address</label>
-              <input id="em" type="email" required autocomplete="email" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+              <input id="em" name="email" type="email" required autocomplete="username" value="${esc(rememberedEmail)}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
             </div>
 
             <div>
               <label class="block text-xs font-bold uppercase mb-1" for="pw">Password</label>
-              <input id="pw" type="password" required autocomplete="${s ? 'new-password' : 'current-password'}" minlength="6" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+              <div class="relative">
+                <input id="pw" name="password" type="password" required autocomplete="${s ? 'new-password' : 'current-password'}" minlength="6" class="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+                <button type="button" id="togglePwBtn" onclick="togglePasswordVisibility('pw', 'togglePwBtn')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm focus:outline-none" title="Show/Hide Password">👁️</button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs pt-0.5">
+              <label class="flex items-center space-x-2 cursor-pointer select-none">
+                <input type="checkbox" id="rememberMe" checked class="rounded border-slate-300 text-egyptian-700 focus:ring-egyptian-600">
+                <span class="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Remember my password on this device</span>
+              </label>
+              ${!s ? `
+                <button type="button" onclick="mode='forgot'; render();" class="text-[11px] text-egyptian-700 dark:text-egyptian-300 hover:underline font-bold">
+                  Forgot?
+                </button>
+              ` : ''}
             </div>
 
             <button type="submit" id="authBtn" class="w-full py-3 bg-egyptian-700 hover:bg-egyptian-800 text-white font-bold text-xs rounded-xl shadow-lg transition mt-2">
@@ -1879,11 +2091,130 @@
         </div>`;
     }
 
+    /* Forgot Password View */
+    function forgotView() {
+      const rememberedEmail = localStorage.getItem("tn_remembered_email") || "";
+      return `
+        <div class="max-w-md mx-auto w-full bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-xl shadow-egyptian-950/5">
+          <div class="text-center mb-6">
+            <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-egyptian-800 to-egyptian-600 items-center justify-center text-white font-black text-2xl shadow-lg mb-3">
+              TN
+            </div>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white">Reset Password</h2>
+            <p class="text-xs text-slate-500 mt-1">Get back into your TEENETWORK account</p>
+          </div>
+
+          <div class="mb-5 p-3.5 rounded-2xl bg-blue-50 dark:bg-egyptian-950/60 border border-blue-200 dark:border-egyptian-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+            💡 <strong>Fastest Option for Outreach Members:</strong> Your Center Administrator can reset your password to the easy default <strong>teenetwork2026</strong> in 1 second! You can contact them directly on WhatsApp.
+          </div>
+
+          <form onsubmit="event.preventDefault(); sendForgotPassword();" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold uppercase mb-1" for="fp_em">Registered Email Address</label>
+              <input id="fp_em" type="email" required autocomplete="email" value="${esc(rememberedEmail)}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+            </div>
+
+            <button type="submit" id="fpBtn" class="w-full py-3 bg-egyptian-700 hover:bg-egyptian-800 text-white font-bold text-xs rounded-xl shadow-lg transition">
+              Send Password Reset Link
+            </button>
+          </form>
+
+          <div class="mt-6 pt-5 border-t border-slate-100 dark:border-[#1e356d]/60 text-center text-xs">
+            <button onclick="mode='login'; render();" class="text-egyptian-700 dark:text-egyptian-300 hover:underline font-bold">
+              &larr; Back to Log In
+            </button>
+          </div>
+        </div>`;
+    }
+
+    async function sendForgotPassword() {
+      const btn = $("fpBtn");
+      btn.disabled = true; btn.textContent = "Sending link...";
+      const em = $("fp_em").value.trim();
+      try {
+        await api("POST", "/api/forgot", { email: em });
+        flash("If registered, a reset link was generated! You can also ask your admin for an instant reset.");
+        mode = "login";
+        render();
+      } catch (e) {
+        flash("", e.message);
+        btn.disabled = false; btn.textContent = "Send Password Reset Link";
+      }
+    }
+
+    /* Reset Password View (When opening ?reset=token) */
+    function resetView() {
+      return `
+        <div class="max-w-md mx-auto w-full bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-xl shadow-egyptian-950/5">
+          <div class="text-center mb-6">
+            <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-egyptian-800 to-egyptian-600 items-center justify-center text-white font-black text-2xl shadow-lg mb-3">
+              TN
+            </div>
+            <h2 class="text-2xl font-black text-slate-900 dark:text-white">Choose New Password</h2>
+            <p class="text-xs text-slate-500 mt-1">Set a password you will easily remember</p>
+          </div>
+
+          <form onsubmit="event.preventDefault(); submitResetPassword();" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold uppercase mb-1" for="nrp">New Password (min 6 characters)</label>
+              <div class="relative">
+                <input id="nrp" type="password" required minlength="6" autocomplete="new-password" class="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+                <button type="button" id="toggleNrpBtn" onclick="togglePasswordVisibility('nrp', 'toggleNrpBtn')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 text-sm">👁️</button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase mb-1" for="confirmNrp">Confirm New Password</label>
+              <div class="relative">
+                <input id="confirmNrp" type="password" required minlength="6" autocomplete="new-password" class="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+                <button type="button" id="toggleConfirmNrpBtn" onclick="togglePasswordVisibility('confirmNrp', 'toggleConfirmNrpBtn')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 text-sm">👁️</button>
+              </div>
+            </div>
+
+            <button type="submit" id="resetBtn" class="w-full py-3 bg-egyptian-700 hover:bg-egyptian-800 text-white font-bold text-xs rounded-xl shadow-lg transition">
+              Update & Save Password
+            </button>
+          </form>
+
+          <div class="mt-6 pt-5 border-t border-slate-100 dark:border-[#1e356d]/60 text-center text-xs">
+            <button onclick="resetToken=null; mode='login'; render();" class="text-egyptian-700 dark:text-egyptian-300 hover:underline font-bold">
+              &larr; Cancel and Log In
+            </button>
+          </div>
+        </div>`;
+    }
+
+    async function submitResetPassword() {
+      const p1 = $("nrp").value;
+      const p2 = $("confirmNrp").value;
+      if (p1 !== p2) return flash("", "Passwords do not match.");
+      if (p1.length < 6) return flash("", "Password must be at least 6 characters.");
+      const btn = $("resetBtn");
+      btn.disabled = true; btn.textContent = "Updating password...";
+      try {
+        await api("POST", "/api/reset", { token: resetToken, password: p1 });
+        flash("Password updated successfully! You can now log in.");
+        resetToken = null;
+        mode = "login";
+        window.history.replaceState({}, document.title, window.location.pathname);
+        render();
+      } catch (e) {
+        flash("", e.message);
+        btn.disabled = false; btn.textContent = "Update & Save Password";
+      }
+    }
+
     async function signUp() {
       const btn = $("authBtn"); btn.disabled = true; btn.textContent = "Creating account...";
       try {
-        const res = await api("POST", "/api/signup", { name: $("nm").value, email: $("em").value, password: $("pw").value });
+        const email = $("em").value.trim();
+        const res = await api("POST", "/api/signup", { name: $("nm").value.trim(), email, password: $("pw").value });
+        const remember = $("rememberMe") ? $("rememberMe").checked : true;
+        if (remember) {
+          localStorage.setItem("tn_remembered_email", email);
+        }
         if (res.user && res.token) {
+          localStorage.setItem("tn_active_token", res.token);
           saveAccountToDevice({ id: res.user.id, name: res.user.name, email: res.user.email, is_admin: res.user.is_admin, token: res.token });
         }
         await boot();
@@ -1897,8 +2228,14 @@
     async function logIn() {
       const btn = $("authBtn"); btn.disabled = true; btn.textContent = "Logging in...";
       try {
-        const res = await api("POST", "/api/login", { email: $("em").value, password: $("pw").value });
+        const email = $("em").value.trim();
+        const res = await api("POST", "/api/login", { email, password: $("pw").value });
+        const remember = $("rememberMe") ? $("rememberMe").checked : true;
+        if (remember) {
+          localStorage.setItem("tn_remembered_email", email);
+        }
         if (res.user && res.token) {
+          localStorage.setItem("tn_active_token", res.token);
           saveAccountToDevice({ id: res.user.id, name: res.user.name, email: res.user.email, is_admin: res.user.is_admin, token: res.token });
         }
         await boot();

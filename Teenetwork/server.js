@@ -569,12 +569,13 @@ async function auth(req, res, next) {
 const admin = (req, res, next) => req.user.is_admin ? next() : res.status(403).json({ error: "Admins only" });
 
 function login(res, id) {
-  const token = jwt.sign({ id }, SECRET, { expiresIn: "30d" });
+  // Remember user login for 1 year (365 days)
+  const token = jwt.sign({ id }, SECRET, { expiresIn: "365d" });
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 30 * 864e5
+    maxAge: 365 * 864e5
   });
   return token;
 }
@@ -633,8 +634,8 @@ app.post("/api/switch-account", wrap(async (req, res) => {
     const { id } = jwt.verify(token, SECRET);
     const r = await q("select id,name,email,center_id,is_admin from users where id=$1", [id]);
     if (!r.rows[0]) return res.status(404).json({ error: "User not found" });
-    login(res, id);
-    res.json({ ok: true, user: r.rows[0] });
+    const newToken = login(res, id);
+    res.json({ ok: true, token: newToken, user: r.rows[0] });
   } catch {
     res.status(401).json({ error: "Session expired for this account. Please log in again." });
   }
