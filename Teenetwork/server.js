@@ -20,6 +20,36 @@ let isPostgres = Boolean(DB);
 let localDb = null;
 const localDbFile = path.join(__dirname, "data.json");
 
+const defaultSchools = [
+  {
+    id: 1,
+    name: "King's College Lagos",
+    center_id: 1,
+    contact_person: "Dr. A. Adebayo (Principal)",
+    phone: "+234 803 123 4567",
+    email: "principal@kingscollegelagos.sch.ng",
+    address: "3 Catholic Mission Street, Lagos Island, Lagos"
+  },
+  {
+    id: 2,
+    name: "Queen's College Yaba",
+    center_id: 1,
+    contact_person: "Mrs. O. Adeleke (Vice Principal)",
+    phone: "+234 802 987 6543",
+    email: "vp@queenscollegeyaba.sch.ng",
+    address: "Birrel Avenue, Sabo Yaba, Lagos"
+  },
+  {
+    id: 3,
+    name: "Government Secondary School Garki",
+    center_id: 2,
+    contact_person: "Mr. Emmanuel Ibrahim (Outreach Coordinator)",
+    phone: "+234 805 555 1234",
+    email: "gssgarki@fct.gov.ng",
+    address: "Area 10, Garki, Abuja"
+  }
+];
+
 if (isPostgres) {
   pool = new Pool({
     connectionString: DB,
@@ -30,8 +60,9 @@ if (isPostgres) {
   if (fs.existsSync(localDbFile)) {
     try {
       localDb = JSON.parse(fs.readFileSync(localDbFile, "utf8"));
+      if (!localDb.schools) localDb.schools = [...defaultSchools];
     } catch {
-      localDb = { centers: [], users: [], reports: [], password_resets: [], user_centers: [] };
+      localDb = { centers: [], schools: [...defaultSchools], users: [], reports: [], password_resets: [], user_centers: [], user_schools: [] };
     }
   } else {
     localDb = {
@@ -51,10 +82,12 @@ if (isPostgres) {
           contact: "Pastor Emmanuel (+234 803 987 6543)"
         }
       ],
+      schools: [...defaultSchools],
       users: [],
       reports: [],
       password_resets: [],
-      user_centers: []
+      user_centers: [],
+      user_schools: []
     };
     saveLocalDb();
   }
@@ -99,6 +132,7 @@ async function q(sql, p = []) {
       is_admin: Boolean(p[3]),
       center_id: null,
       center_ids: [],
+      school_ids: [1, 2, 3], // Default access to sample schools
       phone: "",
       bio: "",
       created_at: now,
@@ -110,7 +144,7 @@ async function q(sql, p = []) {
   }
   if (s.includes("select id,password_hash from users where email=$1")) {
     const user = localDb.users.find(u => u.email.toLowerCase() === p[0].toLowerCase());
-    return { rows: user ? [{ id: user.id, password_hash: user.password_hash }] : [] };
+    return { rows: user ? [{ id: user.id, password_hash: user.password_hash, name: user.name, is_admin: user.is_admin }] : [] };
   }
   if (s.includes("select id,name,email,center_id,is_admin,phone,bio,created_at,last_active_at from users where id=$1") ||
       s.includes("select id,name,email,center_id,is_admin from users where id=$1")) {
@@ -137,6 +171,7 @@ async function q(sql, p = []) {
         email: u.email,
         center_id: u.center_id,
         center_ids: u.center_ids || (u.center_id ? [u.center_id] : []),
+        school_ids: u.school_ids || [1, 2, 3],
         is_admin: u.is_admin,
         phone: u.phone || "",
         bio: u.bio || "",
@@ -152,8 +187,6 @@ async function q(sql, p = []) {
       user.center_id = cId;
       if (cId) {
         user.center_ids = Array.from(new Set([...(user.center_ids || []), cId]));
-      } else {
-        user.center_ids = [];
       }
       saveLocalDb();
     }
@@ -183,33 +216,62 @@ async function q(sql, p = []) {
     return { rows: user ? [{ id: user.id, name: user.name }] : [] };
   }
 
+  // schools queries
+  if (s.includes("select * from schools order by name")) {
+    const schools = [...(localDb.schools || [])].sort((a, b) => a.name.localeCompare(b.name));
+    return { rows: schools };
+  }
+  if (s.includes("insert into schools")) {
+    const id = ((localDb.schools || []).reduce((max, sch) => Math.max(max, sch.id), 0) || 0) + 1;
+    const school = {
+      id,
+      name: p[0],
+      center_id: p[1] ? Number(p[1]) : null,
+      contact_person: p[2] || "",
+      phone: p[3] || "",
+      email: p[4] || "",
+      address: p[5] || ""
+    };
+    if (!localDb.schools) localDb.schools = [];
+    localDb.schools.push(school);
+    saveLocalDb();
+    return { rows: [{ id }] };
+  }
+  if (s.includes("update schools set")) {
+    const sId = Number(p[6]);
+    const sch = (localDb.schools || []).find(x => x.id === sId);
+    if (sch) {
+      sch.name = p[0];
+      sch.center_id = p[1] ? Number(p[1]) : null;
+      sch.contact_person = p[2] || "";
+      sch.phone = p[3] || "";
+      sch.email = p[4] || "";
+      sch.address = p[5] || "";
+      saveLocalDb();
+    }
+    return { rowCount: sch ? 1 : 0, rows: [] };
+  }
+  if (s.includes("delete from schools where id=$1")) {
+    const sId = Number(p[0]);
+    if (localDb.schools) {
+      localDb.schools = localDb.schools.filter(x => x.id !== sId);
+      saveLocalDb();
+    }
+    return { rows: [] };
+  }
+
   // user_centers queries
   if (s.includes("select center_id from user_centers where user_id=$1")) {
     const user = localDb.users.find(u => u.id === Number(p[0]));
     const ids = user ? (user.center_ids || (user.center_id ? [user.center_id] : [])) : [];
     return { rows: ids.map(cid => ({ center_id: cid })) };
   }
-  if (s.includes("insert into user_centers")) {
-    const userId = Number(p[0]), centerId = Number(p[1]);
-    const user = localDb.users.find(u => u.id === userId);
-    if (user) {
-      user.center_ids = Array.from(new Set([...(user.center_ids || []), centerId]));
-      if (!user.center_id) user.center_id = centerId;
-      saveLocalDb();
-    }
-    return { rows: [] };
-  }
-  if (s.includes("delete from user_centers where user_id=$1 and center_id=$2")) {
-    const userId = Number(p[0]), centerId = Number(p[1]);
-    const user = localDb.users.find(u => u.id === userId);
-    if (user && user.center_ids) {
-      user.center_ids = user.center_ids.filter(c => c !== centerId);
-      if (user.center_id === centerId) {
-        user.center_id = user.center_ids[0] || null;
-      }
-      saveLocalDb();
-    }
-    return { rows: [] };
+
+  // user_schools queries
+  if (s.includes("select school_id from user_schools where user_id=$1")) {
+    const user = localDb.users.find(u => u.id === Number(p[0]));
+    const ids = user ? (user.school_ids || [1, 2, 3]) : [1, 2, 3];
+    return { rows: ids.map(sid => ({ school_id: sid })) };
   }
 
   // centers queries
@@ -254,27 +316,18 @@ async function q(sql, p = []) {
   }
 
   // reports queries
-  if (s.includes("select * from reports where center_id=$1 order by date desc, id desc")) {
-    const reports = localDb.reports
-      .filter(r => r.center_id === Number(p[0]))
-      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
-    return { rows: reports };
-  }
-  if (s.includes("select * from reports where center_id = any($1)")) {
-    const cids = Array.isArray(p[0]) ? p[0].map(Number) : [Number(p[0])];
-    const reports = localDb.reports
-      .filter(r => cids.includes(Number(r.center_id)))
-      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
-    return { rows: reports };
-  }
   if (s.includes("select * from reports order by date desc, id desc")) {
     const reports = [...localDb.reports]
       .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
     return { rows: reports };
   }
-  if (s.includes("select member_id from reports where id=$1")) {
+  if (s.includes("select * from reports where id=$1")) {
     const rep = localDb.reports.find(r => r.id === Number(p[0]));
-    return { rows: rep ? [{ member_id: rep.member_id }] : [] };
+    return { rows: rep ? [{ ...rep }] : [] };
+  }
+  if (s.includes("select member_id, year from reports where id=$1") || s.includes("select member_id from reports where id=$1")) {
+    const rep = localDb.reports.find(r => r.id === Number(p[0]));
+    return { rows: rep ? [{ member_id: rep.member_id, year: rep.year || 2026 }] : [] };
   }
   if (s.includes("insert into reports")) {
     const id = (localDb.reports.reduce((max, r) => Math.max(max, r.id), 0) || 0) + 1;
@@ -293,6 +346,8 @@ async function q(sql, p = []) {
       challenges: p[9] || "",
       photos: p[10] || "[]",
       status: p[11] || "submitted",
+      year: Number(p[12]) || new Date().getFullYear(),
+      academic_session: p[13] || "First Term",
       created_at: now,
       updated_at: now
     };
@@ -304,14 +359,13 @@ async function q(sql, p = []) {
     const reportId = Number(p[8]);
     const report = localDb.reports.find(r => r.id === reportId);
     if (report) {
-      report.school = p[0];
-      report.date = p[1];
-      report.attendance = p[2];
-      report.details = p[3];
-      report.students = Number(p[4]);
-      report.remarks = p[5];
-      report.challenges = p[6];
-      report.photos = p[7] || "[]";
+      report.date = p[0];
+      report.attendance = p[1];
+      report.details = p[2];
+      report.students = Number(p[3]);
+      report.remarks = p[4];
+      report.challenges = p[5];
+      report.photos = p[6] || "[]";
       report.updated_at = new Date().toISOString();
       saveLocalDb();
     }
@@ -359,6 +413,15 @@ async function setup() {
       session_time text,
       contact text
     );
+    create table if not exists schools (
+      id serial primary key,
+      name text not null,
+      center_id int references centers on delete set null,
+      contact_person text,
+      phone text,
+      email text,
+      address text
+    );
     create table if not exists users (
       id serial primary key,
       name text not null,
@@ -376,6 +439,11 @@ async function setup() {
       center_id int references centers on delete cascade,
       primary key (user_id, center_id)
     );
+    create table if not exists user_schools (
+      user_id int references users on delete cascade,
+      school_id int references schools on delete cascade,
+      primary key (user_id, school_id)
+    );
     create table if not exists reports (
       id serial primary key,
       center_id int references centers on delete cascade,
@@ -390,6 +458,8 @@ async function setup() {
       challenges text,
       photos text,
       status text default 'submitted',
+      year int default 2026,
+      academic_session text default 'First Term',
       created_at timestamptz default now(),
       updated_at timestamptz default now()
     );
@@ -409,7 +479,18 @@ async function setup() {
     await q(`alter table reports add column if not exists photos text;`).catch(() => {});
     await q(`alter table reports add column if not exists status text default 'submitted';`).catch(() => {});
     await q(`alter table reports add column if not exists updated_at timestamptz default now();`).catch(() => {});
+    await q(`alter table reports add column if not exists year int default 2026;`).catch(() => {});
+    await q(`alter table reports add column if not exists academic_session text default 'First Term';`).catch(() => {});
     await q(`alter table users add column if not exists last_active_at timestamptz default now();`).catch(() => {});
+
+    // Seed default schools in PostgreSQL if empty
+    const count = (await q("select count(*) from schools")).rows[0].count;
+    if (count === "0") {
+      for (const sc of defaultSchools) {
+        await q("insert into schools(name, center_id, contact_person, phone, email, address) values($1, $2, $3, $4, $5, $6)",
+          [sc.name, sc.center_id, sc.contact_person, sc.phone, sc.email, sc.address]).catch(() => {});
+      }
+    }
   }
 }
 
@@ -440,6 +521,25 @@ async function getUserCenters(user, allCenters) {
     assignedIds.push(user.center_id);
   }
   return allCenters.filter(c => assignedIds.includes(c.id));
+}
+
+// Helper to fetch schools assigned to a user
+async function getUserSchools(user, allSchools) {
+  if (user.is_admin) {
+    return allSchools;
+  }
+  let assignedIds = [];
+  if (isPostgres) {
+    const usRes = await q("select school_id from user_schools where user_id=$1", [user.id]);
+    assignedIds = usRes.rows.map(r => r.school_id);
+  } else {
+    assignedIds = user.school_ids || [];
+  }
+  // If no explicit school assigned, provide all schools in the user's centres or all default schools
+  if (!assignedIds.length) {
+    return allSchools;
+  }
+  return allSchools.filter(s => assignedIds.includes(s.id));
 }
 
 async function auth(req, res, next) {
@@ -547,11 +647,15 @@ app.post("/api/logout", (req, res) => {
 
 app.get("/api/me", auth, wrap(async (req, res) => {
   const allCenters = (await q("select * from centers order by name")).rows;
+  const allSchools = (await q("select * from schools order by name")).rows;
   const userCenters = await getUserCenters(req.user, allCenters);
+  const userSchools = await getUserSchools(req.user, allSchools);
+
   res.json({
     ...req.user,
     token: req.token,
-    centers: userCenters
+    centers: userCenters,
+    schools: userSchools
   });
 }));
 
@@ -571,18 +675,19 @@ app.put("/api/profile", auth, wrap(async (req, res) => {
 app.get("/api/data", auth, wrap(async (req, res) => {
   const u = req.user;
   const centers = (await q("select * from centers order by name")).rows;
+  const allSchools = (await q("select * from schools order by name")).rows;
   const userCenters = await getUserCenters(u, centers);
+  const userSchools = await getUserSchools(u, allSchools);
   const userCenterIds = userCenters.map(c => c.id);
 
-  let reports = [];
-  if (u.is_admin) {
-    reports = (await q("select * from reports order by date desc, id desc")).rows;
-  } else if (userCenterIds.length > 0) {
-    if (isPostgres) {
-      reports = (await q("select * from reports where center_id = any($1) order by date desc, id desc", [userCenterIds])).rows;
-    } else {
-      reports = (await q("select * from reports where center_id = any($1)", [userCenterIds])).rows;
-    }
+  let reports = (await q("select * from reports order by date desc, id desc")).rows;
+  if (!u.is_admin) {
+    const userSchoolNames = userSchools.map(s => s.name.trim().toLowerCase());
+    reports = reports.filter(r =>
+      userCenterIds.includes(Number(r.center_id)) ||
+      userSchoolNames.includes((r.school || "").trim().toLowerCase()) ||
+      r.member_id === u.id
+    );
   }
 
   const rawUsers = u.is_admin
@@ -611,6 +716,8 @@ app.get("/api/data", auth, wrap(async (req, res) => {
   res.json({
     centers,
     user_centers: userCenters,
+    schools: allSchools,
+    user_schools: userSchools,
     reports,
     users,
     stats: {
@@ -620,6 +727,30 @@ app.get("/api/data", auth, wrap(async (req, res) => {
       activeMembers: u.is_admin ? activeMembersCount : undefined
     }
   });
+}));
+
+/* ---- Schools Management ---- */
+app.post("/api/schools", auth, admin, wrap(async (req, res) => {
+  const { name, center_id, contact_person, phone, email, address } = req.body;
+  if (!name) return res.status(400).json({ error: "School name is required." });
+
+  await q("insert into schools(name, center_id, contact_person, phone, email, address) values($1, $2, $3, $4, $5, $6)",
+    [name.trim(), center_id ? Number(center_id) : null, contact_person || "", phone || "", email || "", address || ""]);
+  res.json({ ok: true });
+}));
+
+app.put("/api/schools/:id", auth, admin, wrap(async (req, res) => {
+  const { name, center_id, contact_person, phone, email, address } = req.body;
+  if (!name) return res.status(400).json({ error: "School name is required." });
+
+  await q("update schools set name=$1, center_id=$2, contact_person=$3, phone=$4, email=$5, address=$6 where id=$7",
+    [name.trim(), center_id ? Number(center_id) : null, contact_person || "", phone || "", email || "", address || "", req.params.id]);
+  res.json({ ok: true });
+}));
+
+app.delete("/api/schools/:id", auth, admin, wrap(async (req, res) => {
+  await q("delete from schools where id=$1", [req.params.id]);
+  res.json({ ok: true });
 }));
 
 /* ---- Centre Management ---- */
@@ -656,59 +787,32 @@ app.delete("/api/centers/:id", auth, admin, wrap(async (req, res) => {
 
 app.put("/api/users/:id/center", auth, admin, wrap(async (req, res) => {
   const centerId = req.body.center_id ? Number(req.body.center_id) : null;
-  const action = req.body.action || "set";
-
-  if (action === "add" && centerId) {
-    if (isPostgres) {
-      await q("insert into user_centers(user_id, center_id) values($1, $2) on conflict do nothing", [req.params.id, centerId]);
-    } else {
-      await q("insert into user_centers(user_id, center_id) values($1, $2)", [req.params.id, centerId]);
-    }
-  } else if (action === "remove" && centerId) {
-    await q("delete from user_centers where user_id=$1 and center_id=$2", [req.params.id, centerId]);
-  } else {
-    await q("update users set center_id=$1 where id=$2", [centerId, req.params.id]);
-    if (centerId) {
-      if (isPostgres) {
-        await q("insert into user_centers(user_id, center_id) values($1, $2) on conflict do nothing", [req.params.id, centerId]);
-      } else {
-        await q("insert into user_centers(user_id, center_id) values($1, $2)", [req.params.id, centerId]);
-      }
-    }
-  }
-
+  await q("update users set center_id=$1 where id=$2", [centerId, req.params.id]);
   res.json({ ok: true });
 }));
 
-/* ---- Report Submission & Editing ---- */
+/* ---- Report Submission & Editing (With Year Lockout Rule) ---- */
 app.post("/api/reports", auth, wrap(async (req, res) => {
   const u = req.user, b = req.body;
   const allCenters = (await q("select * from centers order by name")).rows;
   const userCenters = await getUserCenters(u, allCenters);
-  const userCenterIds = userCenters.map(c => c.id);
 
   let centerId = b.center_id ? Number(b.center_id) : null;
   if (!centerId) {
-    centerId = userCenterIds[0] || u.center_id;
-  }
-
-  if (!centerId) {
-    return res.status(403).json({ error: "You have not been assigned to a centre yet. Contact your administrator." });
-  }
-
-  if (!u.is_admin && !userCenterIds.includes(centerId)) {
-    return res.status(403).json({ error: "You can only submit reports for centres you are assigned to." });
+    centerId = userCenters[0]?.id || u.center_id || 1;
   }
 
   if (!b.school || !b.date || !b.details || b.students === "" || isNaN(Number(b.students))) {
-    return res.status(400).json({ error: "Please fill in school, date, session details and number of students." });
+    return res.status(400).json({ error: "Please fill in date, session details and number of students." });
   }
 
   const photos = Array.isArray(b.photos) ? JSON.stringify(b.photos) : (typeof b.photos === "string" ? b.photos : "[]");
+  const year = Number(b.year) || new Date().getFullYear();
+  const academicSession = b.academic_session || "First Term";
 
-  await q(`insert into reports(center_id,member_id,member_name,school,date,attendance,details,students,remarks,challenges,photos,status)
-           values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-    [centerId, u.id, u.name, b.school.trim(), b.date, b.attendance || "", b.details.trim(), Number(b.students), b.remarks || "", b.challenges || "", photos, "submitted"]);
+  await q(`insert into reports(center_id,member_id,member_name,school,date,attendance,details,students,remarks,challenges,photos,status,year,academic_session)
+           values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+    [centerId, u.id, u.name, b.school.trim(), b.date, b.attendance || "", b.details.trim(), Number(b.students), b.remarks || "", b.challenges || "", photos, "submitted", year, academicSession]);
 
   res.json({ ok: true });
 }));
@@ -717,26 +821,45 @@ app.put("/api/reports/:id", auth, wrap(async (req, res) => {
   const u = req.user, b = req.body;
   const repId = req.params.id;
 
-  const check = await q("select member_id from reports where id=$1", [repId]);
+  const check = await q("select member_id, year from reports where id=$1", [repId]);
   if (!check.rows[0]) return res.status(404).json({ error: "Report not found" });
 
-  if (!u.is_admin && check.rows[0].member_id !== u.id) {
+  const report = check.rows[0];
+  const currentYear = new Date().getFullYear();
+
+  // Past Year Lockout Rule:
+  // "ONCE A YEAR IS FINISHED THE DETAILS IN THAT YEAR WILL BECOME EDITABLE ONLY BY AN ADMIN WHEN THEY LOG IN TO REVIEW THE REPORTS"
+  if (Number(report.year) < currentYear && !u.is_admin) {
+    return res.status(403).json({ error: "This report is from a past academic year and is locked. It can only be reviewed or edited by an Administrator." });
+  }
+
+  if (!u.is_admin && report.member_id !== u.id) {
     return res.status(403).json({ error: "You can only edit your own reports." });
   }
 
-  if (!b.school || !b.date || !b.details || b.students === "" || isNaN(Number(b.students))) {
-    return res.status(400).json({ error: "Please fill in school, date, session details and number of students." });
+  if (!b.date || !b.details || b.students === "" || isNaN(Number(b.students))) {
+    return res.status(400).json({ error: "Please fill in date, session details and number of students." });
   }
 
   const photos = Array.isArray(b.photos) ? JSON.stringify(b.photos) : (typeof b.photos === "string" ? b.photos : "[]");
 
-  await q(`update reports set school=$1, date=$2, attendance=$3, details=$4, students=$5, remarks=$6, challenges=$7, photos=$8, updated_at=now() where id=$9`,
-    [b.school.trim(), b.date, b.attendance || "", b.details.trim(), Number(b.students), b.remarks || "", b.challenges || "", photos, repId]);
+  await q(`update reports set date=$1, attendance=$2, details=$3, students=$4, remarks=$5, challenges=$6, photos=$7, updated_at=now() where id=$8`,
+    [b.date, b.attendance || "", b.details.trim(), Number(b.students), b.remarks || "", b.challenges || "", photos, repId]);
 
   res.json({ ok: true });
 }));
 
 app.delete("/api/reports/:id", auth, wrap(async (req, res) => {
+  const check = await q("select member_id, year from reports where id=$1", [req.params.id]);
+  if (!check.rows[0]) return res.status(404).json({ error: "Report not found" });
+
+  const report = check.rows[0];
+  const currentYear = new Date().getFullYear();
+
+  if (Number(report.year) < currentYear && !req.user.is_admin) {
+    return res.status(403).json({ error: "Reports from past academic years cannot be deleted by members. Contact an administrator." });
+  }
+
   await q("delete from reports where id=$1 and ($2 or member_id=$3)", [req.params.id, req.user.is_admin, req.user.id]);
   res.json({ ok: true });
 }));
