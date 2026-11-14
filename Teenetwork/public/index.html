@@ -58,9 +58,7 @@
       
       <!-- Left: Brand Logo & Title -->
       <div class="flex items-center space-x-3 cursor-pointer" onclick="navigateHome()">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-egyptian-800 to-egyptian-600 flex items-center justify-center text-white font-black text-xl shadow-md shadow-egyptian-700/30 border border-egyptian-500/20">
-          TN
-        </div>
+        <img src="/logo-icon.png" class="w-10 h-10 object-contain rounded-xl shadow-md bg-white p-0.5 border border-egyptian-500/20" alt="TEENETWORK Logo">
         <div>
           <h1 class="font-bold text-lg leading-tight tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             TEENETWORK
@@ -219,8 +217,16 @@
         <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0a1128]/50 border border-slate-200 dark:border-[#1e356d] flex items-start space-x-3">
           <span class="text-base">👤</span>
           <div>
-            <h4 class="text-[10px] font-bold uppercase text-slate-400">Principal / Coordinator</h4>
+            <h4 class="text-[10px] font-bold uppercase text-slate-400">Contact Person</h4>
             <p id="scmContactPerson" class="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">Not specified</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0a1128]/50 border border-slate-200 dark:border-[#1e356d] flex items-start space-x-3">
+          <span class="text-base">⏰</span>
+          <div>
+            <h4 class="text-[10px] font-bold uppercase text-slate-400">Session Date & Time</h4>
+            <p id="scmSessionTime" class="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">Not specified</p>
           </div>
         </div>
 
@@ -283,6 +289,12 @@
         <div id="addNameRow" class="hidden">
           <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="add_nm">Full Name</label>
           <input id="add_nm" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+        </div>
+
+        <div id="addWhatsappRow" class="hidden">
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="add_wa">WhatsApp Phone Number *</label>
+          <input id="add_wa" type="tel" placeholder="+234 801 234 5678" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+          <p class="text-[10px] text-slate-400 mt-0.5">Required for outreach meeting reminders.</p>
         </div>
 
         <div>
@@ -455,6 +467,96 @@
     </div>
   </div>
 
+  <!-- Modal 7: Email Confirmation OTP on Login -->
+  <div id="loginOtpModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 sm:p-7 animate-fade-in relative">
+      <button onclick="closeLoginOtpModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 rounded-2xl bg-egyptian-50 dark:bg-egyptian-950/80 border border-egyptian-200 dark:border-egyptian-800 flex items-center justify-center text-2xl mx-auto mb-3 shadow-inner">
+          ✉️
+        </div>
+        <h3 class="text-xl font-black text-slate-900 dark:text-white">Email Confirmation Code</h3>
+        <p class="text-xs text-slate-500 mt-1">
+          A 6-digit confirmation code was sent to <br>
+          <span id="otpTargetEmail" class="font-bold text-egyptian-700 dark:text-egyptian-300"></span>
+        </p>
+      </div>
+
+      <div id="otpDevNotice" class="hidden mb-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 text-xs">
+        <span class="font-bold">⚡ Development OTP:</span> <span id="otpDevCode" class="font-mono font-bold tracking-widest text-sm"></span>
+      </div>
+
+      <form onsubmit="event.preventDefault(); verifyLoginOtp();" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase mb-1.5 text-center" for="otpInput">
+            Enter 6-Digit Code
+          </label>
+          <input id="otpInput" type="text" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required placeholder="000000" class="w-full text-center tracking-[0.5em] text-2xl font-black py-3 rounded-2xl border-2 border-slate-300 dark:border-[#1e356d] focus:border-egyptian-600 bg-white dark:bg-[#0a1128] text-slate-900 dark:text-white outline-none">
+        </div>
+
+        <button type="submit" id="verifyOtpBtn" class="w-full py-3 bg-egyptian-700 hover:bg-egyptian-800 text-white font-bold text-xs rounded-xl shadow-lg transition">
+          Confirm & Log In
+        </button>
+      </form>
+
+      <div class="mt-5 pt-4 border-t border-slate-100 dark:border-[#1e356d] text-center text-xs flex justify-between items-center">
+        <button type="button" onclick="closeLoginOtpModal()" class="text-slate-400 hover:text-slate-600 font-semibold">
+          Cancel
+        </button>
+        <button type="button" id="resendOtpBtn" onclick="resendLoginOtp()" class="text-egyptian-700 dark:text-egyptian-300 font-bold hover:underline">
+          Resend Code
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 8: Edit School Modal -->
+  <div id="editSchoolModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 animate-fade-in relative">
+      <button onclick="closeEditSchoolModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      
+      <div class="mb-4">
+        <h3 class="text-lg font-black text-slate-900 dark:text-white">✏️ Edit School Details</h3>
+        <p class="text-xs text-slate-500 mt-0.5">Update school name, contact person, or session schedule.</p>
+      </div>
+
+      <form onsubmit="event.preventDefault(); submitEditSchool();" class="space-y-3">
+        <input type="hidden" id="es_id">
+        <div>
+          <label class="block text-xs font-bold uppercase mb-1 text-slate-600 dark:text-slate-300">School Name *</label>
+          <input id="es_name" required class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase mb-1 text-slate-600 dark:text-slate-300">Contact Person</label>
+          <input id="es_contact" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase mb-1 text-slate-600 dark:text-slate-300">Session Date & Time</label>
+          <input id="es_session_time" placeholder="e.g. Wednesdays 10:00 AM - 11:30 AM" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase mb-1 text-slate-600 dark:text-slate-300">Phone Number</label>
+          <input id="es_phone" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase mb-1 text-slate-600 dark:text-slate-300">Email Address</label>
+          <input id="es_email" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase mb-1 text-slate-600 dark:text-slate-300">Address / Location</label>
+          <input id="es_address" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+        </div>
+        <div class="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+          <button type="button" onclick="closeEditSchoolModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+          <button type="submit" id="submitEditSchoolBtn" class="px-5 py-2.5 bg-egyptian-700 hover:bg-egyptian-800 text-white font-bold text-xs rounded-xl shadow">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <footer class="border-t border-slate-200 dark:border-[#1e356d] py-6 text-center text-xs text-slate-500 no-print">
     TEENETWORK &copy; 2026. Academic Session Reporting Hub.
   </footer>
@@ -473,11 +575,17 @@
     let reportPhotos = [];
 
     // Admin view state:
-    let adminTab = "reports"; // "reports", "members", "centers", "schools"
+    let adminTab = "reports"; // "reports", "members", "schools", "reminders"
     let filterCenter = "";
     let filterMember = "";
     let filterDate = "all";
     let filterQuery = "";
+    let filterReminderType = "all";
+    let remindersList = [];
+
+    // OTP verification state:
+    let pendingOtpEmail = "";
+    let pendingOtpDevCode = "";
 
     // Auth state:
     let mode = "login";
@@ -783,6 +891,9 @@
             reports = d.reports || [];
             profiles = d.users || [];
             stats = d.stats || {};
+            if (me.is_admin) {
+              await loadRemindersData();
+            }
           } catch (e) {
             console.error("Failed to load dashboard data:", e);
           }
@@ -985,6 +1096,7 @@
       $("scmEmail").textContent = selectedSchool.email || "Not specified";
       $("scmEmail").href = selectedSchool.email ? `mailto:${selectedSchool.email}` : "#";
       $("scmAddress").textContent = selectedSchool.address || "Not specified";
+      if ($("scmSessionTime")) $("scmSessionTime").textContent = selectedSchool.session_time || "Not specified";
 
       const modal = $("schoolContactModal");
       modal.classList.remove("hidden");
@@ -1008,9 +1120,10 @@
 
     /* STAGE 1: YEAR SELECTION (Increases as years pass by) */
     function memberYearSelectionStage() {
-      // Generate years: from 2025 up to current year + 1 (e.g. 2025, 2026, 2027)
+      // Future years e.g. 2027 are visible but not clickable
+      // Past years are locked for members (only clickable by admin)
       const yearsList = [];
-      for (let y = 2025; y <= currentYear + 1; y++) {
+      for (let y = 2025; y <= currentYear + 2; y++) {
         yearsList.push(y);
       }
 
@@ -1036,11 +1149,46 @@
             <p class="text-xs text-slate-500 mt-1">Select the calendar year for session reports at ${esc(selectedSchool.name)}.</p>
             
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6">
-              ${yearsList.map(y => `
-                <button onclick="chooseYear(${y})" class="p-4 rounded-2xl border-2 ${y === currentYear ? 'border-egyptian-600 bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-200 shadow-md font-black' : 'border-slate-200 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-800 dark:text-slate-200 font-bold hover:border-egyptian-400'} transition text-base">
-                  <span>${y}</span>
-                  ${y === currentYear ? '<span class="block text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">Current Year</span>' : (y < currentYear ? '<span class="block text-[9px] text-slate-400 mt-0.5">Past Year</span>' : '')}
-                </button>`).join('')}
+              ${yearsList.map(y => {
+                if (y > currentYear) {
+                  return `
+                    <div class="p-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-[#1e356d] bg-slate-50/50 dark:bg-[#0a1128]/50 text-slate-400 opacity-60 cursor-not-allowed select-none transition">
+                      <div class="flex items-center justify-between">
+                        <span class="font-bold text-base">${y}</span>
+                        <span class="text-xs">🔒</span>
+                      </div>
+                      <span class="block text-[9px] uppercase font-bold text-slate-400 mt-1">Future Year (Locked)</span>
+                    </div>`;
+                }
+                if (y < currentYear) {
+                  if (!me.is_admin) {
+                    return `
+                      <div class="p-4 rounded-2xl border-2 border-slate-200 dark:border-[#1e356d] bg-slate-100/60 dark:bg-[#0a1128]/60 text-slate-400 opacity-70 cursor-not-allowed select-none transition">
+                        <div class="flex items-center justify-between">
+                          <span class="font-bold text-base">${y}</span>
+                          <span class="text-xs">🔒</span>
+                        </div>
+                        <span class="block text-[9px] uppercase font-bold text-slate-400 mt-1">Past Year (Closed)</span>
+                      </div>`;
+                  }
+                  return `
+                    <button onclick="chooseYear(${y})" class="p-4 rounded-2xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold hover:border-amber-500 transition text-base">
+                      <div class="flex items-center justify-between">
+                        <span>${y}</span>
+                        <span class="text-xs">🛡️</span>
+                      </div>
+                      <span class="block text-[9px] text-amber-700 dark:text-amber-400 mt-0.5 font-bold uppercase">Past Year (Admin)</span>
+                    </button>`;
+                }
+                return `
+                  <button onclick="chooseYear(${y})" class="p-4 rounded-2xl border-2 border-egyptian-600 bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-200 shadow-md font-black hover:scale-[1.02] transition text-base">
+                    <div class="flex items-center justify-between">
+                      <span>${y}</span>
+                      <span class="text-xs">✨</span>
+                    </div>
+                    <span class="block text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 mt-1">Active Year</span>
+                  </button>`;
+              }).join('')}
             </div>
           </div>
         </div>`;
@@ -1055,9 +1203,27 @@
     /* STAGE 2: ACADEMIC SESSION SELECTION (First Term, Second Term, Third Term) */
     function memberSessionSelectionStage() {
       const terms = [
-        { id: "First Term", title: "First Term", desc: "September - December session period", icon: "📘" },
-        { id: "Second Term", title: "Second Term", desc: "January - April session period", icon: "📗" },
-        { id: "Third Term", title: "Third Term", desc: "May - July session period", icon: "📙" }
+        {
+          id: "First Term",
+          title: "First Term",
+          dateRange: "01 September till 26 December",
+          desc: "September till December session period (01 Sep – 26 Dec)",
+          icon: "📘"
+        },
+        {
+          id: "Second Term",
+          title: "Second Term",
+          dateRange: "01 January till 20 April",
+          desc: "January till April session period (01 Jan – 20 Apr)",
+          icon: "📗"
+        },
+        {
+          id: "Third Term",
+          title: "Third Term",
+          dateRange: "25 April till 15 August",
+          desc: "April till August session period (25 Apr – 15 Aug)",
+          icon: "📙"
+        }
       ];
 
       return `
@@ -1088,8 +1254,11 @@
                     ${t.icon}
                   </div>
                   <div class="flex-1">
-                    <h4 class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-egyptian-700 dark:group-hover:text-egyptian-300">${t.title}</h4>
-                    <p class="text-[11px] text-slate-400">${t.desc}</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <h4 class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-egyptian-700 dark:group-hover:text-egyptian-300">${t.title}</h4>
+                      <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-egyptian-100 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300">${t.dateRange}</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-0.5">${t.desc}</p>
                   </div>
                   <span class="text-xs font-bold text-egyptian-700 dark:text-egyptian-300">&rarr;</span>
                 </button>`).join('')}
@@ -1114,7 +1283,34 @@
 
       // Past Year Lockout Check:
       // "ONCE A YEAR IS FINISHED THE DETAILS IN THAT YEAR WILL BECOME EDITABLE ONLY BY AN ADMIN WHEN THEY LOG IN TO REVIEW THE REPORTS"
+      // "make it such that members are unable to submit and edit report for previous years"
       const isPastYear = Number(selectedYear) < currentYear;
+
+      // Date ranges for academic terms:
+      // First Term: 01 September till 26 December
+      // Second Term: 01 January till 20 April
+      // Third Term: 25 April till 15 August
+      let termMinDate = `${selectedYear}-01-01`;
+      let termMaxDate = `${selectedYear}-12-31`;
+      let termDateNotice = "";
+      if (selectedSession === "First Term") {
+        termMinDate = `${selectedYear}-09-01`;
+        termMaxDate = `${selectedYear}-12-26`;
+        termDateNotice = "01 September till 26 December";
+      } else if (selectedSession === "Second Term") {
+        termMinDate = `${selectedYear}-01-01`;
+        termMaxDate = `${selectedYear}-04-20`;
+        termDateNotice = "01 January till 20 April";
+      } else if (selectedSession === "Third Term") {
+        termMinDate = `${selectedYear}-04-25`;
+        termMaxDate = `${selectedYear}-08-15`;
+        termDateNotice = "25 April till 15 August";
+      }
+
+      // Default date value within the term
+      let defaultDateVal = new Date().toISOString().slice(0, 10);
+      if (defaultDateVal < termMinDate) defaultDateVal = termMinDate;
+      if (defaultDateVal > termMaxDate) defaultDateVal = termMaxDate;
 
       return `
         <div class="space-y-6 max-w-3xl mx-auto animate-fade-in">
@@ -1152,11 +1348,15 @@
           </div>
 
           ${isPastYear && !me.is_admin ? `
-            <div class="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center space-x-2">
-              <span>🔒</span>
-              <span>This year (${selectedYear}) has concluded. Reports from past years are locked for member editing and can only be modified by an Administrator.</span>
-            </div>` : ''}
-
+            <div class="p-5 rounded-3xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 text-xs flex items-start space-x-3">
+              <span class="text-2xl shrink-0">🔒</span>
+              <div>
+                <h4 class="font-black text-sm mb-0.5">Past Academic Year Locked (${selectedYear})</h4>
+                <p class="font-medium text-slate-700 dark:text-slate-300">
+                  Members are unable to submit or edit reports for past academic years. You can view recorded session history below. Contact an Administrator if an edit is required.
+                </p>
+              </div>
+            </div>` : `
           <!-- New Report Form -->
           <div class="bg-white dark:bg-[#111d3d] rounded-3xl border border-slate-200 dark:border-[#1e356d] p-6 shadow-sm">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#1e356d] mb-4">
@@ -1172,13 +1372,29 @@
             </div>
 
             <form onsubmit="event.preventDefault(); submitReport();" class="space-y-4">
-              <!-- Note: School Name input is REMOVED as requested -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase mb-1" for="rf_date">
                     Date of Session <span class="text-fiery-600">*</span>
                   </label>
-                  <input id="rf_date" type="date" required oninput="saveDraft()" value="${new Date().toISOString().slice(0, 10)}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-egyptian-600 font-semibold">
+                  <input id="rf_date" type="date" required min="${termMinDate}" max="${termMaxDate}" oninput="saveDraft()" value="${defaultDateVal}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-egyptian-600 font-semibold">
+                  <p class="text-[10px] text-slate-400 mt-1 font-medium">📅 Term: ${termDateNotice}</p>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase mb-1" for="rf_class">
+                    Class Level <span class="text-fiery-600">*</span>
+                  </label>
+                  <select id="rf_class" required onchange="saveDraft()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-egyptian-600">
+                    <option value="" disabled selected>-- Select Class --</option>
+                    <option value="JSS 1">JSS 1</option>
+                    <option value="JSS 2">JSS 2</option>
+                    <option value="JSS 3">JSS 3</option>
+                    <option value="SS 1">SS 1</option>
+                    <option value="SS 2">SS 2</option>
+                    <option value="SS 3">SS 3</option>
+                    <option value="Tutorial">Tutorial</option>
+                  </select>
                 </div>
 
                 <div>
@@ -1249,7 +1465,7 @@
                 </button>
               </div>
             </form>
-          </div>
+          </div>`}
 
           <!-- Existing Reports for this School + Year + Session -->
           <div class="space-y-3">
@@ -1336,6 +1552,7 @@
       if (currentEditId || !me || !selectedSchool) return;
       const draft = {
         date: $("rf_date") ? $("rf_date").value : "",
+        class_level: $("rf_class") ? $("rf_class").value : "",
         students: $("rf_students") ? $("rf_students").value : "",
         attendance: $("rf_attendance") ? $("rf_attendance").value : "",
         details: $("rf_details") ? $("rf_details").value : "",
@@ -1356,6 +1573,7 @@
         const draft = JSON.parse(raw);
         if ($("rf_details") && draft.details) {
           if (draft.date) $("rf_date").value = draft.date;
+          if (draft.class_level && $("rf_class")) $("rf_class").value = draft.class_level;
           $("rf_students").value = draft.students || "";
           $("rf_attendance").value = draft.attendance || "";
           $("rf_details").value = draft.details || "";
@@ -1377,6 +1595,7 @@
       reportPhotos = [];
       if (me && selectedSchool) localStorage.removeItem(getDraftKey());
       if ($("rf_date")) $("rf_date").value = new Date().toISOString().slice(0, 10);
+      if ($("rf_class")) $("rf_class").selectedIndex = 0;
       if ($("rf_students")) $("rf_students").value = "";
       if ($("rf_attendance")) $("rf_attendance").value = me ? me.name : "";
       if ($("rf_details")) $("rf_details").value = "";
@@ -1397,6 +1616,7 @@
         school: selectedSchool.name,
         year: Number(selectedYear),
         academic_session: selectedSession,
+        class_level: $("rf_class") ? $("rf_class").value : "",
         center_id: selectedSchool.center_id,
         date: $("rf_date").value,
         students: $("rf_students").value,
@@ -1442,6 +1662,7 @@
 
       setTimeout(() => {
         if ($("rf_date")) $("rf_date").value = rep.date ? rep.date.slice(0, 10) : "";
+        if ($("rf_class")) $("rf_class").value = rep.class_level || "";
         if ($("rf_students")) $("rf_students").value = rep.students || "";
         if ($("rf_attendance")) $("rf_attendance").value = rep.attendance || "";
         if ($("rf_details")) $("rf_details").value = rep.details || "";
@@ -1470,11 +1691,15 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
               <div class="w-12 h-12 rounded-2xl bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-700 dark:text-egyptian-300 flex items-center justify-center shrink-0 text-xl font-bold border border-egyptian-200 dark:border-egyptian-800">
-                🎓
+                👥
               </div>
               <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Students Reached</p>
-                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${totalStudents.toLocaleString()}</h3>
+                <div class="flex items-center gap-1.5">
+                  <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Students Reached</p>
+                  <span class="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-egyptian-100 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300" title="Calculated as sum of school averages (distinct audience reached)">Distinct Avg</span>
+                </div>
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${(stats.distinctStudentsReached || totalStudents).toLocaleString()}</h3>
+                <p class="text-[10px] text-slate-400 mt-0.5">Avg. ${stats.avgStudentsPerSchool || 0} students/school &bull; ${stats.totalStudents || totalStudents} session total</p>
               </div>
             </div>
 
@@ -1509,7 +1734,7 @@
             </div>
           </div>
 
-          <!-- Admin Tabs -->
+          <!-- Admin Tabs (Centers tab removed from Admin Dashboard as requested) -->
           <div class="border-b border-slate-200 dark:border-[#1e356d] flex space-x-2 tabs-container">
             <button onclick="adminTab='reports'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'reports' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
               📊 All Reports (${reports.length})
@@ -1520,12 +1745,12 @@
             <button onclick="adminTab='schools'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'schools' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
               🏫 Schools Management (${schools.length})
             </button>
-            <button onclick="adminTab='centers'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'centers' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
-              🏛️ Centres (${centers.length})
+            <button onclick="adminTab='reminders'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'reminders' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
+              🤖 AI WhatsApp Reminders (${remindersList.length})
             </button>
           </div>
 
-          ${adminTab === 'reports' ? adminReportsHub() : adminTab === 'members' ? adminMembersHub() : adminTab === 'schools' ? adminSchoolsHub() : adminCentersHub()}
+          ${adminTab === 'reports' ? adminReportsHub() : adminTab === 'members' ? adminMembersHub() : adminTab === 'schools' ? adminSchoolsHub() : adminRemindersHub()}
         </div>`;
     }
 
@@ -1541,8 +1766,12 @@
                 <input id="ns_name" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
               </div>
               <div>
-                <label class="block text-xs font-bold uppercase mb-1">Contact Person / Principal</label>
+                <label class="block text-xs font-bold uppercase mb-1">Contact Person</label>
                 <input id="ns_contact" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase mb-1">Session Date & Time</label>
+                <input id="ns_session_time" placeholder="e.g. Wednesdays 10:00 AM - 11:30 AM" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase mb-1">Phone Number</label>
@@ -1564,34 +1793,87 @@
 
           <div class="bg-white dark:bg-[#111d3d] p-5 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm md:col-span-2">
             <h3 class="font-bold text-base text-slate-900 dark:text-white mb-1">Schools Directory (${schools.length})</h3>
-            <p class="text-xs text-slate-500 mb-4">All outreach schools and contact persons.</p>
+            <p class="text-xs text-slate-500 mb-4">All outreach schools, meeting schedules and contact persons.</p>
             <div class="space-y-3">
               ${schools.map(s => `
-                <div class="p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] bg-slate-50/50 dark:bg-[#0a1128]/50 flex justify-between items-center">
-                  <div>
+                <div class="p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] bg-slate-50/50 dark:bg-[#0a1128]/50 flex justify-between items-center gap-3">
+                  <div class="space-y-1">
                     <h4 class="font-extrabold text-sm text-slate-900 dark:text-white">${esc(s.name)}</h4>
-                    <p class="text-xs text-slate-500 mt-0.5">👤 ${esc(s.contact_person || 'No contact person')} · 📞 ${esc(s.phone || 'No phone')}</p>
+                    <p class="text-xs text-slate-500">👤 <strong>Contact:</strong> ${esc(s.contact_person || 'No contact person')} · 📞 ${esc(s.phone || 'No phone')}</p>
+                    <p class="text-xs text-egyptian-700 dark:text-egyptian-300 font-bold">⏰ <strong>Meeting:</strong> ${esc(s.session_time || 'No session time scheduled')}</p>
                     <p class="text-[11px] text-slate-400">📍 ${esc(s.address || 'No address')}</p>
                   </div>
-                  <button onclick="deleteSchoolRow(${s.id})" class="p-2 text-slate-400 hover:text-fiery-600 rounded-lg">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
+                  <div class="flex items-center space-x-1 shrink-0">
+                    <button onclick="openEditSchoolModal(${s.id})" title="Edit School" class="p-2 text-slate-400 hover:text-egyptian-700 dark:hover:text-egyptian-400 rounded-lg transition">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button onclick="deleteSchoolRow(${s.id})" title="Delete School" class="p-2 text-slate-400 hover:text-fiery-600 rounded-lg transition">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
                 </div>`).join('')}
             </div>
           </div>
         </div>`;
     }
 
+    /* Edit School Modal Handlers */
+    function openEditSchoolModal(schoolId) {
+      const sch = schools.find(s => s.id === schoolId);
+      if (!sch) return;
+      $("es_id").value = sch.id;
+      $("es_name").value = sch.name || "";
+      $("es_contact").value = sch.contact_person || "";
+      $("es_session_time").value = sch.session_time || "";
+      $("es_phone").value = sch.phone || "";
+      $("es_email").value = sch.email || "";
+      $("es_address").value = sch.address || "";
+      const modal = $("editSchoolModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeEditSchoolModal() {
+      const modal = $("editSchoolModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function submitEditSchool() {
+      const id = $("es_id").value;
+      const name = $("es_name").value.trim();
+      const contact_person = $("es_contact").value.trim();
+      const session_time = $("es_session_time").value.trim();
+      const phone = $("es_phone").value.trim();
+      const email = $("es_email").value.trim();
+      const address = $("es_address").value.trim();
+
+      if (!name) return flash("", "School name is required.");
+      const btn = $("submitEditSchoolBtn");
+      btn.disabled = true; btn.textContent = "Saving...";
+
+      try {
+        await api("PUT", `/api/schools/${id}`, { name, contact_person, session_time, phone, email, address });
+        flash("School details updated!");
+        closeEditSchoolModal();
+        await boot();
+      } catch (e) {
+        flash("", e.message);
+        btn.disabled = false; btn.textContent = "Save Changes";
+      }
+    }
+
     async function addSchool() {
       const name = $("ns_name").value.trim();
       const contact_person = $("ns_contact").value.trim();
+      const session_time = $("ns_session_time") ? $("ns_session_time").value.trim() : "";
       const phone = $("ns_phone").value.trim();
       const email = $("ns_email").value.trim();
       const address = $("ns_address").value.trim();
       if (!name) return flash("", "School name is required.");
 
       try {
-        await api("POST", "/api/schools", { name, contact_person, phone, email, address });
+        await api("POST", "/api/schools", { name, contact_person, session_time, phone, email, address });
         flash("School created!");
         await boot();
       } catch (e) {
@@ -1605,6 +1887,166 @@
         await api("DELETE", `/api/schools/${id}`);
         flash("School deleted.");
         await boot();
+      } catch (e) {
+        flash("", e.message);
+      }
+    }
+
+    /* AI WhatsApp Reminders Engine */
+    async function loadRemindersData() {
+      try {
+        const res = await api("GET", "/api/reminders");
+        remindersList = res.reminders || [];
+      } catch (e) {
+        console.error("Failed to load reminders:", e);
+      }
+    }
+
+    function adminRemindersHub() {
+      let filtered = [...remindersList];
+      if (filterReminderType === "1_day_before") {
+        filtered = filtered.filter(r => r.reminder_type_raw === "1_day_before");
+      } else if (filterReminderType === "3_hours_before") {
+        filtered = filtered.filter(r => r.reminder_type_raw === "3_hours_before");
+      }
+
+      const sentCount = remindersList.filter(r => r.sent).length;
+      const membersWithWa = [...new Set(remindersList.map(r => r.user_id))].length;
+
+      return `
+        <div class="space-y-6 animate-fade-in">
+          <!-- Top Info Banner -->
+          <div class="bg-gradient-to-r from-emerald-800 via-teal-800 to-egyptian-900 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xl">🤖</span>
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 tracking-wider">Automated Outreach AI</span>
+              </div>
+              <h2 class="text-2xl font-black">AI WhatsApp Meeting Reminders</h2>
+              <p class="text-xs text-emerald-100 max-w-xl mt-1">
+                Reminders sent automatically to members on WhatsApp the day before and 3 hours before meeting time, containing school name, location, and meeting schedule.
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="dispatchAllDueReminders()" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 shrink-0">
+                <span>⚡ Run AI Reminder Dispatch</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Stats Row -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center text-xl font-bold border border-emerald-200 dark:border-emerald-800">
+                💬
+              </div>
+              <div>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Scheduled Reminders</p>
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${remindersList.length}</h3>
+              </div>
+            </div>
+
+            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center text-xl font-bold border border-blue-200 dark:border-blue-800">
+                ✅
+              </div>
+              <div>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Dispatched / Sent</p>
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${sentCount}</h3>
+              </div>
+            </div>
+
+            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center text-xl font-bold border border-purple-200 dark:border-purple-800">
+                📱
+              </div>
+              <div>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Members on WhatsApp</p>
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${membersWithWa}</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Pills -->
+          <div class="flex items-center gap-2">
+            <button onclick="filterReminderType='all'; render();" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === 'all' ? 'bg-egyptian-700 text-white shadow' : 'bg-white dark:bg-[#111d3d] border border-slate-200 dark:border-[#1e356d] text-slate-600 dark:text-slate-300'}">
+              All Reminders (${remindersList.length})
+            </button>
+            <button onclick="filterReminderType='1_day_before'; render();" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === '1_day_before' ? 'bg-egyptian-700 text-white shadow' : 'bg-white dark:bg-[#111d3d] border border-slate-200 dark:border-[#1e356d] text-slate-600 dark:text-slate-300'}">
+              1 Day Before
+            </button>
+            <button onclick="filterReminderType='3_hours_before'; render();" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === '3_hours_before' ? 'bg-egyptian-700 text-white shadow' : 'bg-white dark:bg-[#111d3d] border border-slate-200 dark:border-[#1e356d] text-slate-600 dark:text-slate-300'}">
+              3 Hours Before
+            </button>
+          </div>
+
+          <!-- Reminders Cards List -->
+          <div class="space-y-4">
+            ${filtered.length === 0 ? `
+              <div class="bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] text-center text-slate-400">
+                <span class="text-3xl block mb-2">📭</span>
+                <p class="text-xs font-semibold">No reminders matching the current filter. Reminders appear automatically once members have assigned schools and registered WhatsApp numbers.</p>
+              </div>` : ''}
+
+            ${filtered.map(rem => `
+              <div class="bg-white dark:bg-[#111d3d] p-5 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="space-y-2 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-black text-sm text-slate-900 dark:text-white">${esc(rem.user_name)}</span>
+                    <span class="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                      📱 ${esc(rem.whatsapp)}
+                    </span>
+                    <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${rem.reminder_type_raw === '3_hours_before' ? 'bg-fiery-50 text-fiery-700 dark:bg-fiery-950/80 dark:text-fiery-300 border border-fiery-200 dark:border-fiery-800' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800'}">
+                      ${esc(rem.reminder_type)}
+                    </span>
+                    ${rem.sent ? '<span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">✓ Sent</span>' : '<span class="text-[10px] font-bold text-amber-500">⏳ Ready</span>'}
+                  </div>
+
+                  <div class="text-xs text-slate-500 space-y-0.5">
+                    <p>🏫 <strong>School:</strong> ${esc(rem.school_name)} &bull; 📍 <strong>Location:</strong> ${esc(rem.location)}</p>
+                    <p>⏰ <strong>Meeting Time:</strong> <span class="font-bold text-slate-700 dark:text-slate-200">${esc(rem.session_time)}</span></p>
+                  </div>
+
+                  <!-- WhatsApp Message Bubble Preview -->
+                  <div class="mt-2 p-3 rounded-2xl bg-slate-50 dark:bg-[#0a1128]/70 border border-slate-200 dark:border-[#1e356d] text-[11px] font-sans text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                    ${esc(rem.message)}
+                  </div>
+                </div>
+
+                <!-- Actions: 1-Click WhatsApp Button & Mark as Sent -->
+                <div class="flex flex-col sm:flex-row md:flex-col items-stretch gap-2 shrink-0 w-full md:w-auto">
+                  <a href="${rem.wa_link}" target="_blank" rel="noopener noreferrer" onclick="markReminderDispatched(${rem.user_id}, ${rem.school_id}, '${rem.reminder_type_raw}')" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-1.5 transition">
+                    <span>📲 Send on WhatsApp</span>
+                  </a>
+                  ${!rem.sent ? `
+                    <button type="button" onclick="markReminderDispatched(${rem.user_id}, ${rem.school_id}, '${rem.reminder_type_raw}')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-300 font-semibold text-[11px] rounded-xl transition">
+                      Mark Sent
+                    </button>` : `
+                    <span class="text-center text-[10px] text-slate-400 py-1">Dispatched</span>`}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    }
+
+    async function markReminderDispatched(userId, schoolId, reminderType) {
+      try {
+        await api("POST", "/api/reminders/trigger", { user_id: userId, school_id: schoolId, reminder_type: reminderType });
+        await loadRemindersData();
+        render();
+      } catch (e) {
+        console.error("Failed to mark reminder sent:", e);
+      }
+    }
+
+    async function dispatchAllDueReminders() {
+      try {
+        for (const rem of remindersList.filter(r => !r.sent)) {
+          await api("POST", "/api/reminders/trigger", { user_id: rem.user_id, school_id: rem.school_id, reminder_type: rem.reminder_type_raw });
+        }
+        flash("All AI reminders scanned and logged successfully!");
+        await loadRemindersData();
+        render();
       } catch (e) {
         flash("", e.message);
       }
@@ -1679,7 +2121,7 @@
                   <tr class="hover:bg-slate-50/50 dark:hover:bg-[#16254f]/40 transition">
                     <td class="px-4 py-3 font-bold text-slate-900 dark:text-white">
                       ${esc(p.name)} ${p.is_admin ? '<span class="text-[9px] bg-fiery-600 text-white px-1.5 py-0.2 rounded font-black">ADMIN</span>' : ''}
-                      <span class="block text-[10px] text-slate-400 font-normal">${esc(p.email)}</span>
+                      <span class="block text-[10px] text-slate-400 font-normal">${esc(p.email)} &bull; 📱 ${esc(p.whatsapp || p.phone || "No WhatsApp")}</span>
                     </td>
                     <td class="px-4 py-3 text-center font-bold">${p.report_count || 0}</td>
                     <td class="px-4 py-3 text-center font-black text-egyptian-700 dark:text-egyptian-300">${(p.students_reached || 0).toLocaleString()}</td>
@@ -1792,6 +2234,10 @@
                   <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300 border border-egyptian-200 dark:border-egyptian-800">
                     ${esc(r.academic_session || "First Term")} ${repYear}
                   </span>
+                  ${r.class_level ? `
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-fiery-50 dark:bg-fiery-950 text-fiery-700 dark:text-fiery-300 border border-fiery-200 dark:border-fiery-800">
+                      Class: ${esc(r.class_level)}
+                    </span>` : ''}
                   <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#16254f] text-slate-500">
                     ${formattedDate}
                   </span>
@@ -1994,6 +2440,7 @@
       $("addModeLoginBtn").className = isSignup ? "flex-1 pb-2 border-b-2 border-transparent text-slate-400" : "flex-1 pb-2 border-b-2 border-egyptian-700 text-egyptian-700 dark:text-egyptian-300";
       $("addModeSignupBtn").className = isSignup ? "flex-1 pb-2 border-b-2 border-egyptian-700 text-egyptian-700 dark:text-egyptian-300" : "flex-1 pb-2 border-b-2 border-transparent text-slate-400";
       $("addNameRow").classList.toggle("hidden", !isSignup);
+      if ($("addWhatsappRow")) $("addWhatsappRow").classList.toggle("hidden", !isSignup);
       $("addAccountSubmitBtn").textContent = isSignup ? "Create & Add Account" : "Log In & Add Account";
     }
 
@@ -2001,15 +2448,24 @@
       const em = $("add_em").value.trim();
       const pw = $("add_pw").value;
       const nm = $("add_nm").value.trim();
+      const wa = $("add_wa") ? $("add_wa").value.trim() : "";
       const btn = $("addAccountSubmitBtn");
       btn.disabled = true; btn.textContent = "Connecting...";
       try {
         let res;
         if (addAccountMode === "signup") {
-          res = await api("POST", "/api/signup", { name: nm, email: em, password: pw });
+          if (!wa) throw new Error("WhatsApp phone number is required.");
+          res = await api("POST", "/api/signup", { name: nm, email: em, password: pw, whatsapp: wa });
         } else {
           res = await api("POST", "/api/login", { email: em, password: pw });
         }
+
+        if (res.require_otp) {
+          closeAddAccountModal();
+          openLoginOtpModal(res.email, res.dev_code);
+          return;
+        }
+
         if (res.user && res.token) {
           localStorage.setItem("tn_active_token", res.token);
           saveAccountToDevice({ id: res.user.id, name: res.user.name, email: res.user.email, is_admin: res.user.is_admin, token: res.token });
@@ -2043,9 +2499,7 @@
       return `
         <div class="max-w-md mx-auto w-full bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-xl shadow-egyptian-950/5">
           <div class="text-center mb-6">
-            <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-egyptian-800 to-egyptian-600 items-center justify-center text-white font-black text-2xl shadow-lg mb-3">
-              TN
-            </div>
+            <img src="/logo-icon.png" class="inline-block w-16 h-16 rounded-2xl object-contain shadow-lg mb-3 bg-white p-1 border border-egyptian-500/20" alt="TEENETWORK Logo">
             <h2 class="text-2xl font-black text-slate-900 dark:text-white">${s ? "Join TEENETWORK" : "Welcome back"}</h2>
             <p class="text-xs text-slate-500 mt-1">${s ? "Sign up to log outreach sessions & impact" : "Log in to record and view session reports"}</p>
           </div>
@@ -2079,6 +2533,12 @@
               <div>
                 <label class="block text-xs font-bold uppercase mb-1" for="nm">Full Name</label>
                 <input id="nm" name="name" required autocomplete="name" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold uppercase mb-1" for="wa">WhatsApp Phone Number <span class="text-fiery-600">*</span></label>
+                <input id="wa" name="whatsapp" type="tel" required placeholder="+234 801 234 5678" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs">
+                <p class="text-[10px] text-slate-400 mt-1">Required to receive automated meeting reminders on WhatsApp.</p>
               </div>` : ''}
 
             <div>
@@ -2125,9 +2585,7 @@
       return `
         <div class="max-w-md mx-auto w-full bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-xl shadow-egyptian-950/5">
           <div class="text-center mb-6">
-            <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-egyptian-800 to-egyptian-600 items-center justify-center text-white font-black text-2xl shadow-lg mb-3">
-              TN
-            </div>
+            <img src="/logo-icon.png" class="inline-block w-16 h-16 rounded-2xl object-contain shadow-lg mb-3 bg-white p-1 border border-egyptian-500/20" alt="TEENETWORK Logo">
             <h2 class="text-2xl font-black text-slate-900 dark:text-white">Reset Password</h2>
             <p class="text-xs text-slate-500 mt-1">Get back into your TEENETWORK account</p>
           </div>
@@ -2175,9 +2633,7 @@
       return `
         <div class="max-w-md mx-auto w-full bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-xl shadow-egyptian-950/5">
           <div class="text-center mb-6">
-            <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-egyptian-800 to-egyptian-600 items-center justify-center text-white font-black text-2xl shadow-lg mb-3">
-              TN
-            </div>
+            <img src="/logo-icon.png" class="inline-block w-16 h-16 rounded-2xl object-contain shadow-lg mb-3 bg-white p-1 border border-egyptian-500/20" alt="TEENETWORK Logo">
             <h2 class="text-2xl font-black text-slate-900 dark:text-white">Choose New Password</h2>
             <p class="text-xs text-slate-500 mt-1">Set a password you will easily remember</p>
           </div>
@@ -2232,11 +2688,85 @@
       }
     }
 
+    /* Login Confirmation OTP Handlers */
+    function openLoginOtpModal(email, devCode) {
+      pendingOtpEmail = email;
+      pendingOtpDevCode = devCode || "";
+      if ($("otpTargetEmail")) $("otpTargetEmail").textContent = email;
+      if ($("otpInput")) $("otpInput").value = "";
+      if ($("otpDevNotice")) {
+        if (devCode) {
+          $("otpDevNotice").classList.remove("hidden");
+          $("otpDevCode").textContent = devCode;
+        } else {
+          $("otpDevNotice").classList.add("hidden");
+        }
+      }
+      const modal = $("loginOtpModal");
+      if (modal) {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        setTimeout(() => $("otpInput") && $("otpInput").focus(), 150);
+      }
+    }
+
+    function closeLoginOtpModal() {
+      const modal = $("loginOtpModal");
+      if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+      }
+    }
+
+    async function verifyLoginOtp() {
+      const otp = ($("otpInput") ? $("otpInput").value : "").trim();
+      if (!otp || otp.length !== 6) {
+        return flash("", "Please enter the 6-digit confirmation code.");
+      }
+      const btn = $("verifyOtpBtn");
+      if (btn) { btn.disabled = true; btn.textContent = "Verifying..."; }
+      try {
+        const res = await api("POST", "/api/verify-login-otp", { email: pendingOtpEmail, otp });
+        if (res.user && res.token) {
+          localStorage.setItem("tn_active_token", res.token);
+          saveAccountToDevice({ id: res.user.id, name: res.user.name, email: res.user.email, is_admin: res.user.is_admin, token: res.token });
+        }
+        closeLoginOtpModal();
+        await boot();
+        flash("Confirmation verified! Welcome back.");
+      } catch (e) {
+        flash("", e.message);
+        if (btn) { btn.disabled = false; btn.textContent = "Confirm & Log In"; }
+      }
+    }
+
+    async function resendLoginOtp() {
+      const btn = $("resendOtpBtn");
+      if (btn) { btn.disabled = true; btn.textContent = "Resending..."; }
+      try {
+        const res = await api("POST", "/api/resend-login-otp", { email: pendingOtpEmail });
+        if (res.dev_code && $("otpDevNotice")) {
+          $("otpDevNotice").classList.remove("hidden");
+          $("otpDevCode").textContent = res.dev_code;
+        }
+        flash("A new confirmation code has been sent!");
+        if (btn) { btn.textContent = "Code Sent!"; setTimeout(() => { btn.disabled = false; btn.textContent = "Resend Code"; }, 5000); }
+      } catch (e) {
+        flash("", e.message);
+        if (btn) { btn.disabled = false; btn.textContent = "Resend Code"; }
+      }
+    }
+
     async function signUp() {
       const btn = $("authBtn"); btn.disabled = true; btn.textContent = "Creating account...";
       try {
         const email = $("em").value.trim();
-        const res = await api("POST", "/api/signup", { name: $("nm").value.trim(), email, password: $("pw").value });
+        const whatsapp = $("wa") ? $("wa").value.trim() : "";
+        if (!whatsapp) {
+          btn.disabled = false; btn.textContent = "Create Account";
+          return flash("", "WhatsApp number is required to receive meeting reminders.");
+        }
+        const res = await api("POST", "/api/signup", { name: $("nm").value.trim(), email, password: $("pw").value, whatsapp });
         const remember = $("rememberMe") ? $("rememberMe").checked : true;
         if (remember) {
           localStorage.setItem("tn_remembered_email", email);
@@ -2262,6 +2792,13 @@
         if (remember) {
           localStorage.setItem("tn_remembered_email", email);
         }
+
+        if (res.require_otp) {
+          btn.disabled = false; btn.textContent = "Log In";
+          openLoginOtpModal(res.email, res.dev_code);
+          return;
+        }
+
         if (res.user && res.token) {
           localStorage.setItem("tn_active_token", res.token);
           saveAccountToDevice({ id: res.user.id, name: res.user.name, email: res.user.email, is_admin: res.user.is_admin, token: res.token });
