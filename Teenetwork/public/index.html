@@ -41,7 +41,7 @@ boot();
 function render(){
   const a=$("app");a.className="";
   const note=(msg?`<p class="ok">${msg}</p>`:"")+(err?`<p class="er">${esc(err)}</p>`:"");
-  a.innerHTML=note+(!me?authView():me.is_admin?adminView():memberView());
+  a.innerHTML=note+(!me?authView():me.is_admin?adminView():memberView())+(me?pwCard():"");
 }
 function flash(m,e){msg=m||"";err=e||"";render();setTimeout(()=>{msg="";err="";render()},4000)}
 
@@ -53,18 +53,24 @@ function authView(){
   <label for="em">Email</label><input id="em" type="email" autocomplete="email">
   <label for="pw">Password</label><input id="pw" type="password" autocomplete="${s?"new-password":"current-password"}" placeholder="At least 6 characters">
   <button onclick="${s?"signUp()":"logIn()"}">${s?"Sign up":"Log in"}</button>
-  <button class="sec" onclick="mode='${s?"login":"signup"}';msg='';err='';render()">${s?"I already have an account":"Create an account"}</button></div>`;
+  <button class="sec" onclick="mode='${s?"login":"signup"}';msg='';err='';render()">${s?"I already have an account":"Create an account"}</button>
+  ${s?"":'<p class="mu">Forgot your password? Ask your admin to reset it. They will give you a temporary password. After you log in, change it using "Change my password" at the bottom of the page.</p>'}</div>`;
 }
 async function signUp(){try{await api("POST","/api/signup",{name:$("nm").value,email:$("em").value,password:$("pw").value});await boot()}catch(e){flash("",e.message)}}
 async function logIn(){try{await api("POST","/api/login",{email:$("em").value,password:$("pw").value});await boot()}catch(e){flash("",e.message)}}
 
 /* ---- Admin ---- */
+function pwCard(){
+  return `<div class="card"><h2>Change my password</h2><label for="op">Current password</label><input id="op" type="password" autocomplete="current-password"><label for="np">New password</label><input id="np" type="password" autocomplete="new-password" placeholder="At least 6 characters"><button onclick="changePw()">Change password</button></div>`;
+}
+async function changePw(){try{await api("PUT","/api/password",{current_password:$("op").value,new_password:$("np").value});flash("Password changed.")}catch(e){flash("",e.message)}}
+async function resetPw(id){const pw=prompt("Type a temporary password for this member (at least 6 characters). Tell them to change it after logging in.");if(!pw)return;try{await api("PUT","/api/users/"+id+"/password",{password:pw});flash("Password reset. Share the temporary password with the member privately.")}catch(e){flash("",e.message)}}
 function adminView(){
   let h=`<div class="tabs">${[["reports","All reports"],["centers","Centres"],["members","Members"]].map(([k,l])=>`<button class="${tab===k?"":"sec"}" onclick="tab='${k}';render()">${l}</button>`).join("")}</div>`;
   if(tab==="centers")h+=`<div class="card"><h2>Add a centre</h2><label for="cn">Centre name</label><input id="cn"><button onclick="addCenter()">Add centre</button></div>
    <div class="card"><h2>Centres (${centers.length})</h2>${centers.map(c=>`<div class="row"><span>${esc(c.name)}</span><button class="del" onclick="delRow('centers','${c.id}')">Remove</button></div>`).join("")||'<p class="mu">No centres yet.</p>'}</div>`;
   else if(tab==="members"){const w=profiles.filter(p=>!p.center_id&&!p.is_admin).length;
-   h+=`<div class="card"><h2>Members (${profiles.length})</h2><p class="mu">${w?w+" waiting to be added. ":""}Choose a centre next to each name.</p>${profiles.map(p=>`<div class="row"><span>${esc(p.name||"No name")}${p.is_admin?" (admin)":""}<br><span class="mu">${p.center_id?esc(cName(p.center_id)):"Waiting for approval"}</span></span>${p.is_admin?"":`<select style="width:auto;max-width:50%" onchange="assign('${p.id}',this.value)"><option value="">Not assigned</option>${centers.map(c=>`<option value="${c.id}" ${p.center_id===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}</select>`}</div>`).join("")}</div>`}
+   h+=`<div class="card"><h2>Members (${profiles.length})</h2><p class="mu">${w?w+" waiting to be added. ":""}Choose a centre next to each name.</p>${profiles.map(p=>`<div class="row"><span>${esc(p.name||"No name")}${p.is_admin?" (admin)":""}<br><span class="mu">${p.center_id?esc(cName(p.center_id)):"Waiting for approval"}</span></span>${p.is_admin?"":`<select style="width:auto;max-width:50%" onchange="assign('${p.id}',this.value)"><option value="">Not assigned</option>${centers.map(c=>`<option value="${c.id}" ${p.center_id===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}</select><button class="del" onclick="resetPw(${p.id})">Reset password</button>`}</div>`).join("")}</div>`}
   else h+=`<div class="card"><h2>All reports</h2><select onchange="fc=this.value;render()"><option value="">All centres</option>${centers.map(c=>`<option value="${c.id}" ${fc===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}</select><button class="sec" onclick="exportCsv()">Download spreadsheet</button>${repList(reports.filter(r=>!fc||r.center_id===fc))}</div>`;
   return h;
 }
