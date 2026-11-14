@@ -593,33 +593,60 @@
       
       <div class="mb-4">
         <div class="flex items-center gap-2">
-          <span class="text-xl">✏️</span>
-          <h3 class="text-lg font-black text-slate-900 dark:text-white">Preview & Edit WhatsApp Reminder</h3>
+          <span class="text-xl">💬</span>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white">WhatsApp Outreach Reminder</h3>
         </div>
         <p class="text-xs text-slate-500 mt-0.5">
-          Customize the automated WhatsApp message for <strong id="ermMemberName" class="text-slate-800 dark:text-slate-200"></strong> at <strong id="ermSchoolName" class="text-slate-800 dark:text-slate-200"></strong>.
+          Member: <strong id="ermMemberName" class="text-slate-800 dark:text-slate-200"></strong> &bull; School: <strong id="ermSchoolName" class="text-slate-800 dark:text-slate-200"></strong>
         </p>
       </div>
 
       <input type="hidden" id="ermRemKey">
+      <input type="hidden" id="ermUserId">
+      <input type="hidden" id="ermSchoolId">
+      <input type="hidden" id="ermRemType">
+      <input type="hidden" id="ermPhone">
 
-      <div class="mb-3 p-3 rounded-2xl bg-egyptian-50 dark:bg-egyptian-950/60 border border-egyptian-200 dark:border-egyptian-800 text-[11px] text-egyptian-800 dark:text-egyptian-300">
-        💡 <strong>Placeholders Supported:</strong> <code class="font-bold">{member_name}</code>, <code class="font-bold">{school_name}</code>, <code class="font-bold">{location}</code>, <code class="font-bold">{session_time}</code>
+      <!-- Delivery Status row inside modal -->
+      <div id="ermStatusRow" class="mb-3 p-3 rounded-2xl bg-slate-50 dark:bg-[#0a1128] border border-slate-200 dark:border-[#1e356d] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+        <div>
+          <span class="text-[10px] font-bold uppercase text-slate-400 block">Delivery Status</span>
+          <span id="ermStatusBadge" class="font-extrabold text-xs">⏳ PENDING</span>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button type="button" onclick="setModalReminderStatus('PENDING')" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-bold text-[10px] border border-amber-200 dark:border-amber-800">
+            ⏳ PENDING
+          </button>
+          <button type="button" onclick="setModalReminderStatus('SUCCESSFUL')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] border border-emerald-200 dark:border-emerald-800">
+            ✅ SUCCESSFUL
+          </button>
+          <button type="button" onclick="setModalReminderStatus('FAILED')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold text-[10px] border border-rose-200 dark:border-rose-800">
+            ❌ FAILED
+          </button>
+        </div>
+      </div>
+
+      <div class="mb-3 p-2.5 rounded-2xl bg-egyptian-50 dark:bg-egyptian-950/60 border border-egyptian-200 dark:border-egyptian-800 text-[11px] text-egyptian-800 dark:text-egyptian-300">
+        💡 <strong>Placeholders:</strong> <code class="font-bold">{member_name}</code>, <code class="font-bold">{school_name}</code>, <code class="font-bold">{location}</code>, <code class="font-bold">{session_time}</code>
       </div>
 
       <div class="space-y-1 mb-4">
-        <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300" for="ermMessageText">WhatsApp Message Body</label>
-        <textarea id="ermMessageText" rows="8" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-mono leading-relaxed outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200"></textarea>
+        <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300" for="ermMessageText">Message Body to be Sent</label>
+        <textarea id="ermMessageText" rows="7" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-mono leading-relaxed outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200"></textarea>
       </div>
 
-      <div class="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-[#1e356d]">
-        <button type="button" onclick="closeEditReminderModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
-        <button type="button" onclick="saveEditedReminderMessage()" id="saveReminderMsgBtn" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow">
-          Save Customized Message
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeEditReminderModal()" class="px-3 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Close</button>
+          <button type="button" onclick="saveEditedReminderMessage()" id="saveReminderMsgBtn" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl">
+            💾 Save Template
+          </button>
+        </div>
+        <button type="button" onclick="sendModalWhatsAppMessage()" id="modalSendWhatsAppBtn" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 active:scale-95">
+          <span>📱 Open WhatsApp & Send</span>
         </button>
       </div>
-    </div>
-  </div>
+    </div>iv>
 
   <footer class="border-t border-slate-200 dark:border-[#1e356d] py-6 text-center text-xs text-slate-500 no-print">
     TEENETWORK &copy; 2026. Academic Session Reporting Hub.
@@ -690,7 +717,127 @@
     let filterQuery = "";
     let filterReminderType = "all";
     let reminderSearchQuery = "";
+    let filterReminderStatus = "all"; // "all", "PENDING", "SUCCESSFUL", "FAILED"
     let remindersList = [];
+
+    function sanitizePhoneForWhatsApp(phone) {
+      if (!phone) return "";
+      let clean = String(phone).replace(/[^0-9]/g, "");
+      if (!clean) return "";
+      if (clean.length === 11 && clean.startsWith("0")) {
+        clean = "234" + clean.substring(1);
+      } else if (clean.length === 10 && !clean.startsWith("234")) {
+        clean = "234" + clean;
+      }
+      return clean;
+    }
+
+    async function openAndSendWhatsAppReminder(remId) {
+      const rem = remindersList.find(r => r.id === remId);
+      if (!rem) return flash("", "Reminder record not found.");
+
+      const cleanPhone = sanitizePhoneForWhatsApp(rem.clean_phone || rem.whatsapp);
+      if (!cleanPhone || cleanPhone.length < 8) {
+        flash("", `Cannot open WhatsApp: "${rem.user_name}" has an invalid or missing WhatsApp number.`);
+        await updateReminderDeliveryStatus(rem.user_id, rem.school_id, rem.reminder_type_raw, "FAILED", "Invalid phone number");
+        return;
+      }
+
+      const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(rem.message)}`;
+      window.open(waUrl, "_blank");
+
+      await updateReminderDeliveryStatus(rem.user_id, rem.school_id, rem.reminder_type_raw, "SUCCESSFUL");
+      flash(`WhatsApp opened to message ${rem.user_name} (${cleanPhone}). Status updated to SUCCESSFUL.`);
+    }
+
+    async function updateReminderDeliveryStatus(userId, schoolId, reminderType, newStatus, errorMsg = "") {
+      const statusUpper = (newStatus || "SUCCESSFUL").toUpperCase();
+      try {
+        await api("POST", "/api/reminders/status", {
+          user_id: Number(userId),
+          school_id: Number(schoolId),
+          reminder_type: reminderType,
+          status: statusUpper,
+          error_msg: errorMsg
+        });
+
+        remindersList.forEach(r => {
+          if (Number(r.user_id) === Number(userId) && Number(r.school_id) === Number(schoolId) && r.reminder_type_raw === reminderType) {
+            r.status = statusUpper;
+            r.sent = statusUpper === "SUCCESSFUL";
+            r.error_msg = errorMsg;
+            r.sent_at = statusUpper === "SUCCESSFUL" ? new Date().toISOString() : r.sent_at;
+          }
+        });
+
+        render();
+      } catch (e) {
+        flash("", e.message || "Failed to update reminder status");
+      }
+    }
+
+    function openPreviewReminderModal(remId) {
+      const rem = remindersList.find(r => r.id === remId);
+      if (!rem) return;
+      openEditReminderModal(
+        rem.rem_key || rem.id,
+        rem.user_name,
+        rem.school_name,
+        rem.message,
+        rem.reminder_type_raw,
+        rem.user_id,
+        rem.school_id,
+        rem.clean_phone || rem.whatsapp,
+        rem.status || "PENDING"
+      );
+    }
+
+    async function setModalReminderStatus(newStatus) {
+      const userId = $("ermUserId")?.value;
+      const schoolId = $("ermSchoolId")?.value;
+      const remType = $("ermRemType")?.value;
+      if (!userId || !schoolId || !remType) {
+        return flash("", "Status applies to specific outreach reminders.");
+      }
+      await updateReminderDeliveryStatus(userId, schoolId, remType, newStatus);
+      const statusBadge = $("ermStatusBadge");
+      if (statusBadge) {
+        if (newStatus === "SUCCESSFUL") {
+          statusBadge.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400">✅ SUCCESSFUL</span>`;
+        } else if (newStatus === "FAILED") {
+          statusBadge.innerHTML = `<span class="text-rose-600 dark:text-rose-400">❌ FAILED</span>`;
+        } else {
+          statusBadge.innerHTML = `<span class="text-amber-600 dark:text-amber-400">⏳ PENDING</span>`;
+        }
+      }
+      flash(`Status updated to ${newStatus}.`);
+    }
+
+    async function sendModalWhatsAppMessage() {
+      const phone = $("ermPhone")?.value;
+      const msg = $("ermMessageText")?.value;
+      const userId = $("ermUserId")?.value;
+      const schoolId = $("ermSchoolId")?.value;
+      const remType = $("ermRemType")?.value;
+
+      const cleanPhone = sanitizePhoneForWhatsApp(phone);
+      if (!cleanPhone || cleanPhone.length < 8) {
+        flash("", "Cannot open WhatsApp: Invalid or missing phone number.");
+        if (userId && schoolId && remType) {
+          await updateReminderDeliveryStatus(userId, schoolId, remType, "FAILED", "Invalid phone number");
+        }
+        return;
+      }
+
+      const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, "_blank");
+
+      if (userId && schoolId && remType) {
+        await updateReminderDeliveryStatus(userId, schoolId, remType, "SUCCESSFUL");
+      }
+      closeEditReminderModal();
+      flash("WhatsApp opened! Reminder delivery status set to SUCCESSFUL.");
+    }
     let reminderTemplates = { template_1day: "", template_3hours: "" };
     let expandedReminderSchoolKeys = new Set();
     function toggleReminderSchoolGroup(key) {
@@ -2126,13 +2273,17 @@
     }
 
     function adminRemindersHub() {
-      const sentCount = remindersList.filter(r => r.sent).length;
-      const scheduledCount = remindersList.length - sentCount;
+      const pendingCount = remindersList.filter(r => (r.status || "PENDING") === "PENDING").length;
+      const successfulCount = remindersList.filter(r => (r.status || "") === "SUCCESSFUL").length;
+      const failedCount = remindersList.filter(r => (r.status || "") === "FAILED").length;
       const membersWithWa = profiles.filter(p => !p.is_admin && (p.whatsapp || p.phone) && (p.school_ids && p.school_ids.length)).length;
 
       let filtered = [...remindersList];
       if (filterReminderType !== "all") {
         filtered = filtered.filter(r => r.reminder_type_raw === filterReminderType);
+      }
+      if (filterReminderStatus !== "all") {
+        filtered = filtered.filter(r => (r.status || "PENDING") === filterReminderStatus);
       }
       if (reminderSearchQuery) {
         const q = reminderSearchQuery.toLowerCase();
@@ -2158,8 +2309,8 @@
 
         const assigned = profiles.filter(p => !p.is_admin && (p.school_ids || []).includes(sch.id));
 
-        if (reminderSearchQuery) {
-          const q = reminderSearchQuery.toLowerCase();
+        if (reminderSearchQuery || filterReminderStatus !== "all") {
+          const q = (reminderSearchQuery || "").toLowerCase();
           const matchSch = (sch.name || '').toLowerCase().includes(q) ||
             (sch.location || '').toLowerCase().includes(q) ||
             (sch.contact_person || '').toLowerCase().includes(q);
@@ -2206,12 +2357,12 @@
             <div>
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xl">🤖</span>
-                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 tracking-wider">AI Autonomous Engine Active</span>
-                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-white tracking-wider">Weekly Meeting Dispatch</span>
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 tracking-wider">AI WhatsApp Outreach Hub</span>
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-white tracking-wider">Direct WhatsApp Integration</span>
               </div>
-              <h2 class="text-2xl font-black">AI WhatsApp Meeting Reminders</h2>
+              <h2 class="text-2xl font-black">WhatsApp Meeting Reminders</h2>
               <p class="text-xs text-emerald-100 max-w-xl mt-1">
-                Reminders are grouped under each school. Click on any school group to view its members' interaction table. Dispatched automatically 1 day before and 3 hours before meetings.
+                Reminders are grouped under each school. Click <strong>"Open & Send"</strong> on any member to launch WhatsApp Web or App with the pre-formatted reminder to dispatch directly. Delivery statuses track <strong>PENDING</strong>, <strong>SUCCESSFUL</strong>, and <strong>FAILED</strong>.
               </p>
             </div>
             <div class="flex items-center gap-3">
@@ -2221,35 +2372,45 @@
             </div>
           </div>
 
-          <!-- Stats Row -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
-              <div class="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center text-xl font-bold border border-blue-200 dark:border-blue-800">
+          <!-- Stats Row: 4 Metric Cards -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3">
+              <div class="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center text-lg font-bold border border-blue-200 dark:border-blue-800 shrink-0">
                 👥
               </div>
               <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Outreach Members on WhatsApp</p>
-                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${membersWithWa}</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Members on WhatsApp</p>
+                <h3 class="text-xl font-black text-slate-900 dark:text-white">${membersWithWa}</h3>
               </div>
             </div>
 
-            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
-              <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center text-xl font-bold border border-emerald-200 dark:border-emerald-800">
-                🤖
-              </div>
-              <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Auto-Dispatched (Weekly)</p>
-                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${sentCount}</h3>
-              </div>
-            </div>
-
-            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
-              <div class="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center text-xl font-bold border border-purple-200 dark:border-purple-800">
+            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm flex items-center space-x-3">
+              <div class="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center text-lg font-bold border border-amber-200 dark:border-amber-800 shrink-0">
                 ⏳
               </div>
               <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Scheduled (Upcoming)</p>
-                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${scheduledCount}</h3>
+                <p class="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">PENDING (Upcoming)</p>
+                <h3 class="text-xl font-black text-amber-700 dark:text-amber-300">${pendingCount}</h3>
+              </div>
+            </div>
+
+            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 shadow-sm flex items-center space-x-3">
+              <div class="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center text-lg font-bold border border-emerald-200 dark:border-emerald-800 shrink-0">
+                ✅
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">SUCCESSFUL (Sent)</p>
+                <h3 class="text-xl font-black text-emerald-700 dark:text-emerald-300">${successfulCount}</h3>
+              </div>
+            </div>
+
+            <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-rose-200/80 dark:border-rose-900/60 shadow-sm flex items-center space-x-3">
+              <div class="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center text-lg font-bold border border-rose-200 dark:border-rose-800 shrink-0">
+                ❌
+              </div>
+              <div>
+                <p class="text-[10px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">FAILED (Didn't Send)</p>
+                <h3 class="text-xl font-black text-rose-700 dark:text-rose-300">${failedCount}</h3>
               </div>
             </div>
           </div>
@@ -2263,15 +2424,15 @@
                   <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">Weekly Engine</span>
                 </h4>
                 <p class="text-xs text-slate-500 mt-0.5">
-                  Click on either button below to preview and customize the template sent for that reminder stage.
+                  Click on either button below to customize the default template sent for that reminder stage.
                 </p>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
-                <button type="button" onclick="openTemplateModal('1_day_before')" class="px-4 py-2.5 rounded-xl bg-egyptian-700 hover:bg-egyptian-800 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 active:scale-95">
+                <button type="button" onclick="openTemplateModal('1_day_before')" class="px-4 py-2 rounded-xl bg-egyptian-700 hover:bg-egyptian-800 text-white font-extrabold text-xs shadow transition flex items-center gap-2 active:scale-95">
                   <span>📅 1 DAY</span>
                   <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-md">Edit Template</span>
                 </button>
-                <button type="button" onclick="openTemplateModal('3_hours_before')" class="px-4 py-2.5 rounded-xl bg-fiery-600 hover:bg-fiery-700 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 active:scale-95">
+                <button type="button" onclick="openTemplateModal('3_hours_before')" class="px-4 py-2 rounded-xl bg-fiery-600 hover:bg-fiery-700 text-white font-extrabold text-xs shadow transition flex items-center gap-2 active:scale-95">
                   <span>⚡ 3 HOURS</span>
                   <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-md">Edit Template</span>
                 </button>
@@ -2307,34 +2468,40 @@
 
           <!-- Grouped by School Header & Controls -->
           <div class="bg-white dark:bg-[#111d3d] p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-sm">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
               <div>
                 <h3 class="font-black text-base text-slate-900 dark:text-white flex items-center gap-2">
                   <span>🏫 Reminders Grouped by School</span>
                   <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">${schoolGroups.length} School${schoolGroups.length !== 1 ? 's' : ''}</span>
                 </h3>
-                <p class="text-xs text-slate-500 mt-0.5">Click any school card below to expand its members' WhatsApp interaction table.</p>
+                <p class="text-xs text-slate-500 mt-0.5">Click any school card to expand its members' table. Click <strong>"Open & Send"</strong> to launch WhatsApp to send reminder.</p>
               </div>
 
               <!-- Search, Filters, and Expand/Collapse All -->
               <div class="flex items-center gap-2 flex-wrap">
                 <input id="reminderSearchInput" value="${esc(reminderSearchQuery)}" oninput="reminderSearchQuery=this.value; render();" placeholder="Search school, member..." class="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-egyptian-600">
-                <div class="flex items-center gap-1">
-                  <button onclick="filterReminderType='all'; render();" class="px-2.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === 'all' ? 'bg-egyptian-700 text-white shadow' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300'}">
+                
+                <!-- Status Filter Pills -->
+                <div class="flex items-center gap-1 bg-slate-100 dark:bg-[#0a1128] p-1 rounded-xl">
+                  <button onclick="filterReminderStatus='all'; render();" class="px-2 py-1 rounded-lg text-[10px] font-bold transition ${filterReminderStatus === 'all' ? 'bg-egyptian-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'}">
                     All (${remindersList.length})
                   </button>
-                  <button onclick="filterReminderType='1_day_before'; render();" class="px-2.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === '1_day_before' ? 'bg-egyptian-700 text-white shadow' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300'}">
-                    1 Day
+                  <button onclick="filterReminderStatus='PENDING'; render();" class="px-2 py-1 rounded-lg text-[10px] font-bold transition ${filterReminderStatus === 'PENDING' ? 'bg-amber-600 text-white shadow-sm' : 'text-amber-700 dark:text-amber-400'}">
+                    ⏳ PENDING (${pendingCount})
                   </button>
-                  <button onclick="filterReminderType='3_hours_before'; render();" class="px-2.5 py-1.5 rounded-xl text-xs font-bold transition ${filterReminderType === '3_hours_before' ? 'bg-egyptian-700 text-white shadow' : 'bg-slate-100 dark:bg-[#16254f] text-slate-600 dark:text-slate-300'}">
-                    3 Hours
+                  <button onclick="filterReminderStatus='SUCCESSFUL'; render();" class="px-2 py-1 rounded-lg text-[10px] font-bold transition ${filterReminderStatus === 'SUCCESSFUL' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 dark:text-emerald-400'}">
+                    ✅ SENT (${successfulCount})
+                  </button>
+                  <button onclick="filterReminderStatus='FAILED'; render();" class="px-2 py-1 rounded-lg text-[10px] font-bold transition ${filterReminderStatus === 'FAILED' ? 'bg-rose-600 text-white shadow-sm' : 'text-rose-700 dark:text-rose-400'}">
+                    ❌ FAILED (${failedCount})
                   </button>
                 </div>
-                <div class="flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-[#1e356d]">
-                  <button onclick="toggleAllReminderSchoolGroups(true, ${allKeysJson})" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-[11px] font-bold text-slate-700 dark:text-slate-200 transition">
+
+                <div class="flex items-center gap-1 pl-1">
+                  <button onclick="toggleAllReminderSchoolGroups(true, ${allKeysJson})" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-[10px] font-bold text-slate-700 dark:text-slate-200 transition">
                     Expand All
                   </button>
-                  <button onclick="toggleAllReminderSchoolGroups(false)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-[11px] font-bold text-slate-700 dark:text-slate-200 transition">
+                  <button onclick="toggleAllReminderSchoolGroups(false)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-[10px] font-bold text-slate-700 dark:text-slate-200 transition">
                     Collapse All
                   </button>
                 </div>
@@ -2351,8 +2518,9 @@
               <div class="space-y-3">
                 ${schoolGroups.map(grp => {
                   const isExpanded = expandedReminderSchoolKeys.has(grp.key);
-                  const sentInGrp = grp.reminders.filter(r => r.sent).length;
-                  const schedInGrp = grp.reminders.length - sentInGrp;
+                  const grpPending = grp.reminders.filter(r => (r.status || "PENDING") === "PENDING").length;
+                  const grpSuccess = grp.reminders.filter(r => (r.status || "") === "SUCCESSFUL").length;
+                  const grpFailed = grp.reminders.filter(r => (r.status || "") === "FAILED").length;
 
                   return `
                     <div class="rounded-2xl border border-slate-200 dark:border-[#1e356d] bg-white dark:bg-[#0a1128]/70 overflow-hidden shadow-sm hover:border-egyptian-500/50 transition">
@@ -2366,7 +2534,7 @@
                             <div class="flex items-center gap-2 flex-wrap">
                               <h4 class="font-black text-sm text-slate-900 dark:text-white">${esc(grp.name)}</h4>
                               ${grp.reminders.length > 0 ? `
-                                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                                   ${grp.reminders.length} Reminder${grp.reminders.length !== 1 ? 's' : ''}
                                 </span>
                               ` : `
@@ -2388,14 +2556,19 @@
                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                               👥 ${grp.assignedMembers.length} Member${grp.assignedMembers.length !== 1 ? 's' : ''}
                             </span>
-                            ${sentInGrp > 0 ? `
-                              <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                ✅ ${sentInGrp} Sent
+                            ${grpPending > 0 ? `
+                              <span class="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                ⏳ ${grpPending} PENDING
                               </span>
                             ` : ''}
-                            ${schedInGrp > 0 ? `
-                              <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                                ⏳ ${schedInGrp} Scheduled
+                            ${grpSuccess > 0 ? `
+                              <span class="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                ✅ ${grpSuccess} SUCCESSFUL
+                              </span>
+                            ` : ''}
+                            ${grpFailed > 0 ? `
+                              <span class="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                                ❌ ${grpFailed} FAILED
                               </span>
                             ` : ''}
                           </div>
@@ -2413,7 +2586,7 @@
                             <div class="p-6 text-center text-slate-400">
                               <p class="text-xs font-semibold">No reminders logged yet for ${esc(grp.name)}.</p>
                               ${grp.assignedMembers.length > 0 ? `
-                                <p class="text-[11px] text-slate-500 mt-1">Assigned outreach members: ${grp.assignedMembers.map(m => esc(m.name)).join(', ')}. Automated engine dispatches 1 day before and 3 hours before meetings.</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Assigned outreach members: ${grp.assignedMembers.map(m => esc(m.name)).join(', ')}. Use "Open & Send" to dispatch reminders via WhatsApp.</p>
                               ` : `
                                 <p class="text-[11px] text-slate-500 mt-1">No outreach members assigned to this school yet. You can assign members in the Member Roster tab.</p>
                               `}
@@ -2423,22 +2596,24 @@
                               <table class="w-full text-left text-xs">
                                 <thead class="bg-slate-100/70 dark:bg-[#0a1128] border-b border-slate-200 dark:border-[#1e356d] text-slate-500 uppercase font-extrabold text-[10px] tracking-wider">
                                   <tr>
-                                    <th class="py-2.5 px-4">Member Name & Contact</th>
+                                    <th class="py-2.5 px-4">Member Name & WhatsApp</th>
                                     <th class="py-2.5 px-3">Reminder Stage</th>
-                                    <th class="py-2.5 px-3">Message Sent</th>
+                                    <th class="py-2.5 px-3">Message Preview</th>
                                     <th class="py-2.5 px-3 text-center">Delivery Status</th>
                                     <th class="py-2.5 px-4 text-right">Actions</th>
                                   </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-[#1e356d]/60 font-medium">
                                   ${grp.reminders.map(rem => {
-                                    const msgSnippet = rem.message.replace(/\n/g, ' ').slice(0, 80) + (rem.message.length > 80 ? '...' : '');
+                                    const msgSnippet = rem.message.replace(/\n/g, ' ').slice(0, 75) + (rem.message.length > 75 ? '...' : '');
+                                    const remStatus = (rem.status || "PENDING").toUpperCase();
+
                                     return `
                                       <tr class="hover:bg-white dark:hover:bg-[#16254f]/40 transition">
                                         <td class="py-2.5 px-4">
                                           <div class="font-extrabold text-slate-900 dark:text-white">${esc(rem.user_name)}</div>
                                           <div class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                                            <span class="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">📱 ${esc(rem.whatsapp || "No Phone")}</span>
+                                            <span class="font-mono text-emerald-600 dark:text-emerald-400 font-bold">📱 ${esc(rem.whatsapp || "No Phone")}</span>
                                           </div>
                                         </td>
 
@@ -2459,30 +2634,41 @@
                                         </td>
 
                                         <td class="py-2.5 px-3 text-center">
-                                          ${rem.sent ? `
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                              Dispatched
-                                            </span>
-                                            ${rem.sent_at ? `<span class="block text-[9px] text-slate-400 mt-0.5">${new Date(rem.sent_at).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>` : ''}
-                                          ` : `
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
-                                              <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
-                                              Scheduled
-                                            </span>
-                                          `}
+                                          <div class="flex flex-col items-center gap-1">
+                                            ${remStatus === 'SUCCESSFUL' ? `
+                                              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-sm">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                SUCCESSFUL
+                                              </span>
+                                            ` : remStatus === 'FAILED' ? `
+                                              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 shadow-sm" title="${esc(rem.error_msg || 'Message did not send')}">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                FAILED
+                                              </span>
+                                            ` : `
+                                              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shadow-sm">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                                PENDING
+                                              </span>
+                                            `}
+
+                                            <!-- Status selector dropdown -->
+                                            <select onchange="updateReminderDeliveryStatus(${rem.user_id}, ${rem.school_id}, '${rem.reminder_type_raw}', this.value)" class="text-[9px] font-bold px-1.5 py-0.5 rounded border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-700 dark:text-slate-300 outline-none cursor-pointer">
+                                              <option value="PENDING" ${remStatus === 'PENDING' ? 'selected' : ''}>⏳ PENDING</option>
+                                              <option value="SUCCESSFUL" ${remStatus === 'SUCCESSFUL' ? 'selected' : ''}>✅ SUCCESSFUL</option>
+                                              <option value="FAILED" ${remStatus === 'FAILED' ? 'selected' : ''}>❌ FAILED</option>
+                                            </select>
+                                          </div>
                                         </td>
 
                                         <td class="py-2.5 px-4 text-right">
-                                          <div class="flex items-center justify-end space-x-1.5">
-                                            <button type="button" onclick="openPreviewReminderModal('${rem.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 font-bold text-[10px] transition" title="Preview full message text">
+                                          <div class="flex items-center justify-end space-x-1.5 flex-wrap gap-y-1">
+                                            <button type="button" onclick="openAndSendWhatsAppReminder('${rem.id}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition flex items-center gap-1.5 active:scale-95" title="Open message on linked WhatsApp account and send to member">
+                                              <span>📱 Open & Send</span>
+                                            </button>
+                                            <button type="button" onclick="openPreviewReminderModal('${rem.id}')" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 font-bold text-xs transition" title="Preview complete message text">
                                               <span>👁️ Preview</span>
                                             </button>
-                                            ${rem.whatsapp ? `
-                                              <a href="https://wa.me/${rem.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(rem.message)}" target="_blank" rel="noopener noreferrer" class="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition" title="Open in WhatsApp Web">
-                                                <span>💬</span>
-                                              </a>
-                                            ` : ''}
                                           </div>
                                         </td>
                                       </tr>
@@ -2524,16 +2710,38 @@
     }
 
     let currentEditRemKey = null;
-    function openEditReminderModal(remKey, userName, schoolName, currentMsg, remType) {
+    function openEditReminderModal(remKey, userName, schoolName, currentMsg, remType, userId = null, schoolId = null, phone = "", status = "PENDING") {
       currentEditRemKey = remKey;
-      $("ermRemKey").value = remKey;
-      $("ermMemberName").textContent = userName;
-      $("ermSchoolName").textContent = schoolName;
-      $("ermMessageText").value = currentMsg;
+      if ($("ermRemKey")) $("ermRemKey").value = remKey;
+      if ($("ermUserId")) $("ermUserId").value = userId || "";
+      if ($("ermSchoolId")) $("ermSchoolId").value = schoolId || "";
+      if ($("ermRemType")) $("ermRemType").value = remType || "";
+      if ($("ermPhone")) $("ermPhone").value = phone || "";
+      if ($("ermMemberName")) $("ermMemberName").textContent = userName || "Member";
+      if ($("ermSchoolName")) $("ermSchoolName").textContent = schoolName || "School";
+      if ($("ermMessageText")) $("ermMessageText").value = currentMsg || "";
+
+      const statusBadge = $("ermStatusBadge");
+      const statusRow = $("ermStatusRow");
+      if (statusRow) {
+        statusRow.style.display = userId && schoolId ? "flex" : "none";
+      }
+      if (statusBadge) {
+        const s = (status || "PENDING").toUpperCase();
+        if (s === "SUCCESSFUL") {
+          statusBadge.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-black">✅ SUCCESSFUL</span>`;
+        } else if (s === "FAILED") {
+          statusBadge.innerHTML = `<span class="text-rose-600 dark:text-rose-400 font-black">❌ FAILED</span>`;
+        } else {
+          statusBadge.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-black">⏳ PENDING</span>`;
+        }
+      }
 
       const modal = $("editReminderModal");
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
+      if (modal) {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      }
     }
 
     function closeEditReminderModal() {

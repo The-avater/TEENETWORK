@@ -556,7 +556,7 @@ async function q(sql, p = []) {
   }
 
   // reminders_sent queries
-  if (s.includes("select * from reminders_sent") || s.includes("insert into reminders_sent")) {
+  if (s.includes("from reminders_sent") || s.includes("reminders_sent")) {
     if (!localDb.reminders_sent) localDb.reminders_sent = [];
     if (s.startsWith("insert into reminders_sent")) {
       localDb.reminders_sent.push({
@@ -565,6 +565,8 @@ async function q(sql, p = []) {
         school_id: Number(p[1]),
         reminder_type: p[2],
         session_date: p[3],
+        status: p[4] || 'PENDING',
+        error_msg: p[5] || null,
         sent_at: new Date().toISOString()
       });
       saveLocalDb();
@@ -668,8 +670,12 @@ async function setup() {
       school_id int,
       reminder_type text,
       session_date text,
+      status text default 'PENDING',
+      error_msg text,
       sent_at timestamptz default now()
     );`).catch(() => {});
+    await q(`alter table reminders_sent add column if not exists status text default 'PENDING';`).catch(() => {});
+    await q(`alter table reminders_sent add column if not exists error_msg text;`).catch(() => {});
     await q(`create table if not exists reminder_templates (
       key text primary key,
       message text not null,
@@ -1061,6 +1067,19 @@ app.get("/api/data", auth, wrap(async (req, res) => {
   });
 }));
 
+function sanitizeWhatsAppPhone(phone) {
+  if (!phone) return "";
+  let clean = String(phone).replace(/[^0-9]/g, "");
+  if (!clean) return "";
+  // Nigerian format with leading 0 (11 digits: e.g. 08012345678 -> 2348012345678)
+  if (clean.length === 11 && clean.startsWith("0")) {
+    clean = "234" + clean.substring(1);
+  } else if (clean.length === 10 && !clean.startsWith("234")) {
+    clean = "234" + clean;
+  }
+  return clean;
+}
+
 /* ---- AI WhatsApp Reminders Engine ---- */
 app.get("/api/reminders", auth, wrap(async (req, res) => {
   const allUsers = (await q("select id,name,email,phone,whatsapp,is_admin from users order by name")).rows;
@@ -1079,24 +1098,35 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
   for (const user of allUsers) {
     if (user.is_admin) continue; // Reminders are strictly for outreach members
 
-    const userPhone = (user.whatsapp || user.phone || "").trim();
-    if (!userPhone) continue;
-    const cleanPhone = userPhone.replace(/[^0-9]/g, "");
-    if (!cleanPhone) continue;
-
-    // RULE: Only members who have assigned schools with the school attached!
     const userSchools = await getUserSchools(user, allSchools);
     if (!userSchools || !userSchools.length) {
       continue;
     }
 
+    const rawPhone = (user.whatsapp || user.phone || "").trim();
+    const cleanPhone = sanitizeWhatsAppPhone(rawPhone);
+
     for (const school of userSchools) {
-      const schoolAddress = school.address || "Assigned School Outreach Center";
+      const schoolAddress = school.location || school.address || "Assigned School Outreach Center";
       const sessionTime = school.session_time || "Morning Assembly / Outreach Period";
 
       // 1. "Day Before" Reminder
       const keyDayBefore = `${user.id}_${school.id}_1day`;
-      const sent1Day = remindersSent.find(r => Number(r.user_id) === Number(user.id) && Number(r.school_id) === Number(school.id) && r.reminder_type === "1_day_before");
+      const sent1Day = remindersSent.find(r =>
+        Number(r.user_id) === Number(user.id) &&
+        Number(r.school_id) === Number(school.id) &&
+        r.reminder_type === "1_day_before"
+      );
+
+      let status1Day = "PENDING";
+      let error1Day = "";
+      if (!cleanPhone || cleanPhone.length < 8) {
+        status1Day = "FAILED";
+        error1Day = "No valid WhatsApp phone number provided on member account";
+      } else if (sent1Day && sent1Day.status) {
+        status1Day = sent1Day.status.toUpperCase();
+        error1Day = sent1Day.error_msg || "";
+      }
 
       let rawTemplate1Day = customMap[keyDayBefore] || customMap["template_1day"] || defaultMsgDayBeforeTemplate;
       let msgDayBefore = rawTemplate1Day
@@ -1105,14 +1135,17 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
         .replace(/\{location\}/g, schoolAddress)
         .replace(/\{session_time\}/g, sessionTime);
 
-      const waLink1Day = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgDayBefore)}`;
+      const waLink1Day = cleanPhone
+        ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msgDayBefore)}`
+        : "";
 
       reminders.push({
         id: keyDayBefore,
         rem_key: keyDayBefore,
         user_id: user.id,
         user_name: user.name,
-        whatsapp: userPhone,
+        whatsapp: rawPhone,
+        clean_phone: cleanPhone,
         school_id: school.id,
         school_name: school.name,
         location: schoolAddress,
@@ -1121,14 +1154,30 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
         reminder_type_raw: "1_day_before",
         message: msgDayBefore,
         wa_link: waLink1Day,
-        sent: Boolean(sent1Day),
+        status: status1Day, // "PENDING", "SUCCESSFUL", "FAILED"
+        error_msg: error1Day,
+        sent: status1Day === "SUCCESSFUL",
         sent_at: sent1Day?.sent_at || null,
         is_customized: Boolean(customMap[keyDayBefore] || customMap["template_1day"])
       });
 
       // 2. "3 Hours Before" Reminder
       const key3Hours = `${user.id}_${school.id}_3hours`;
-      const sent3Hours = remindersSent.find(r => Number(r.user_id) === Number(user.id) && Number(r.school_id) === Number(school.id) && r.reminder_type === "3_hours_before");
+      const sent3Hours = remindersSent.find(r =>
+        Number(r.user_id) === Number(user.id) &&
+        Number(r.school_id) === Number(school.id) &&
+        r.reminder_type === "3_hours_before"
+      );
+
+      let status3Hours = "PENDING";
+      let error3Hours = "";
+      if (!cleanPhone || cleanPhone.length < 8) {
+        status3Hours = "FAILED";
+        error3Hours = "No valid WhatsApp phone number provided on member account";
+      } else if (sent3Hours && sent3Hours.status) {
+        status3Hours = sent3Hours.status.toUpperCase();
+        error3Hours = sent3Hours.error_msg || "";
+      }
 
       let rawTemplate3Hours = customMap[key3Hours] || customMap["template_3hours"] || defaultMsg3HoursTemplate;
       let msg3Hours = rawTemplate3Hours
@@ -1137,14 +1186,17 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
         .replace(/\{location\}/g, schoolAddress)
         .replace(/\{session_time\}/g, sessionTime);
 
-      const waLink3Hours = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg3Hours)}`;
+      const waLink3Hours = cleanPhone
+        ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg3Hours)}`
+        : "";
 
       reminders.push({
         id: key3Hours,
         rem_key: key3Hours,
         user_id: user.id,
         user_name: user.name,
-        whatsapp: userPhone,
+        whatsapp: rawPhone,
+        clean_phone: cleanPhone,
         school_id: school.id,
         school_name: school.name,
         location: schoolAddress,
@@ -1153,7 +1205,9 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
         reminder_type_raw: "3_hours_before",
         message: msg3Hours,
         wa_link: waLink3Hours,
-        sent: Boolean(sent3Hours),
+        status: status3Hours, // "PENDING", "SUCCESSFUL", "FAILED"
+        error_msg: error3Hours,
+        sent: status3Hours === "SUCCESSFUL",
         sent_at: sent3Hours?.sent_at || null,
         is_customized: Boolean(customMap[key3Hours] || customMap["template_3hours"])
       });
@@ -1186,65 +1240,122 @@ app.put("/api/reminders/message", auth, admin, wrap(async (req, res) => {
   res.json({ ok: true, key, message: message.trim() });
 }));
 
-app.post("/api/reminders/trigger", auth, admin, wrap(async (req, res) => {
-  const { user_id, school_id, reminder_type } = req.body;
+app.post("/api/reminders/status", auth, admin, wrap(async (req, res) => {
+  const { user_id, school_id, reminder_type, status, error_msg } = req.body;
   if (!user_id || !school_id || !reminder_type) {
     return res.status(400).json({ error: "Missing user_id, school_id, or reminder_type." });
   }
 
-  await q("insert into reminders_sent(user_id, school_id, reminder_type, session_date) values($1, $2, $3, $4)",
-    [Number(user_id), Number(school_id), reminder_type, new Date().toISOString().split("T")[0]]);
+  const rawStatus = String(status || "SUCCESSFUL").toUpperCase();
+  const validStatus = ["SUCCESSFUL", "PENDING", "FAILED"].includes(rawStatus) ? rawStatus : "SUCCESSFUL";
 
-  res.json({ ok: true, message: "Reminder marked as dispatched." });
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNum = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+  const weekKey = `${now.getFullYear()}-W${weekNum}`;
+
+  if (isPostgres) {
+    const existing = (await q("select id from reminders_sent where user_id=$1 and school_id=$2 and reminder_type=$3 order by id desc limit 1",
+      [Number(user_id), Number(school_id), reminder_type])).rows[0];
+
+    if (existing) {
+      await q("update reminders_sent set status=$1, session_date=$2, error_msg=$3, sent_at=now() where id=$4",
+        [validStatus, weekKey, error_msg || null, existing.id]);
+    } else {
+      await q("insert into reminders_sent(user_id, school_id, reminder_type, session_date, status, error_msg, sent_at) values($1, $2, $3, $4, $5, $6, now())",
+        [Number(user_id), Number(school_id), reminder_type, weekKey, validStatus, error_msg || null]);
+    }
+  } else {
+    localDb.reminders_sent = localDb.reminders_sent || [];
+    const existing = localDb.reminders_sent.find(r =>
+      Number(r.user_id) === Number(user_id) &&
+      Number(r.school_id) === Number(school_id) &&
+      r.reminder_type === reminder_type
+    );
+    if (existing) {
+      existing.status = validStatus;
+      existing.session_date = weekKey;
+      existing.error_msg = error_msg || null;
+      existing.sent_at = now.toISOString();
+    } else {
+      localDb.reminders_sent.push({
+        id: localDb.reminders_sent.length + 1,
+        user_id: Number(user_id),
+        school_id: Number(school_id),
+        reminder_type,
+        session_date: weekKey,
+        status: validStatus,
+        error_msg: error_msg || null,
+        sent_at: now.toISOString()
+      });
+    }
+    saveLocalDb();
+  }
+
+  res.json({ ok: true, status: validStatus });
 }));
 
-/* ---- AI WhatsApp Reminders Autonomous Background Dispatch Engine (Weekly Cycles) ---- */
+app.post("/api/reminders/trigger", auth, admin, wrap(async (req, res) => {
+  const { user_id, school_id, reminder_type, status } = req.body;
+  const newStatus = status ? String(status).toUpperCase() : "SUCCESSFUL";
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNum = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+  const weekKey = `${now.getFullYear()}-W${weekNum}`;
+
+  if (isPostgres) {
+    const existing = (await q("select id from reminders_sent where user_id=$1 and school_id=$2 and reminder_type=$3 order by id desc limit 1",
+      [Number(user_id), Number(school_id), reminder_type])).rows[0];
+
+    if (existing) {
+      await q("update reminders_sent set status=$1, session_date=$2, sent_at=now() where id=$3",
+        [newStatus, weekKey, existing.id]);
+    } else {
+      await q("insert into reminders_sent(user_id, school_id, reminder_type, session_date, status, sent_at) values($1, $2, $3, $4, $5, now())",
+        [Number(user_id), Number(school_id), reminder_type, weekKey, newStatus]);
+    }
+  } else {
+    localDb.reminders_sent = localDb.reminders_sent || [];
+    const existing = localDb.reminders_sent.find(r =>
+      Number(r.user_id) === Number(user_id) &&
+      Number(r.school_id) === Number(school_id) &&
+      r.reminder_type === reminder_type
+    );
+    if (existing) {
+      existing.status = newStatus;
+      existing.session_date = weekKey;
+      existing.sent_at = now.toISOString();
+    } else {
+      localDb.reminders_sent.push({
+        id: localDb.reminders_sent.length + 1,
+        user_id: Number(user_id),
+        school_id: Number(school_id),
+        reminder_type,
+        session_date: weekKey,
+        status: newStatus,
+        sent_at: now.toISOString()
+      });
+    }
+    saveLocalDb();
+  }
+
+  res.json({ ok: true, status: newStatus, message: `Reminder status updated to ${newStatus}.` });
+}));
+
+/* ---- AI WhatsApp Reminders Autonomous Background Monitoring Engine ---- */
 async function runAutoRemindersDispatch() {
   try {
+    // Background health check & verification of reminder queues
     const allUsers = (await q("select id,name,email,phone,whatsapp,is_admin from users where is_admin=false")).rows;
     const allSchools = (await q("select * from schools")).rows;
-    const remindersSent = (await q("select * from reminders_sent")).rows;
-    
-    // Weekly cycle calculation: meeting days are weekly, reminders dispatched weekly
-    const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const weekNum = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
-    const weekKey = `${now.getFullYear()}-W${weekNum}`;
-
-    for (const user of allUsers) {
-      const userPhone = (user.whatsapp || user.phone || "").trim();
-      if (!userPhone) continue;
-      const cleanPhone = userPhone.replace(/[^0-9]/g, "");
-      if (!cleanPhone) continue;
-
-      const userSchools = await getUserSchools(user, allSchools);
-      if (!userSchools || !userSchools.length) continue;
-
-      for (const school of userSchools) {
-        for (const remType of ["1_day_before", "3_hours_before"]) {
-          const alreadyDispatched = remindersSent.some(r =>
-            Number(r.user_id) === Number(user.id) &&
-            Number(r.school_id) === Number(school.id) &&
-            r.reminder_type === remType &&
-            (r.session_date === weekKey || r.session_date === todayStr)
-          );
-
-          if (!alreadyDispatched) {
-            await q("insert into reminders_sent(user_id, school_id, reminder_type, session_date) values($1, $2, $3, $4)",
-              [user.id, school.id, remType, weekKey]);
-            console.log(`[AI Auto-Reminder] Dispatched weekly ${remType} reminder to ${user.name} (${userPhone}) for ${school.name}`);
-          }
-        }
-      }
-    }
+    // Reminders remain in PENDING status until opened and dispatched by admin via WhatsApp
   } catch (err) {
-    console.error("[AI Auto-Reminder Background Error]:", err.message);
+    console.error("[AI Auto-Reminder Background Monitor Error]:", err.message);
   }
 }
 
-setInterval(runAutoRemindersDispatch, 5 * 60 * 1000);
-setTimeout(runAutoRemindersDispatch, 2000);
+setInterval(runAutoRemindersDispatch, 10 * 60 * 1000);
+setTimeout(runAutoRemindersDispatch, 3000);
 
 /* ---- Schools Management ---- */
 app.post("/api/schools", auth, admin, wrap(async (req, res) => {
