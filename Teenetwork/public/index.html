@@ -653,7 +653,66 @@
           <span>📱 Open WhatsApp & Send</span>
         </button>
       </div>
-    </div>iv>
+    </div>
+  </div>
+
+  <!-- Modal 11: WhatsApp Gateway Settings Modal -->
+  <div id="waGatewayModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 animate-fade-in relative">
+      <button onclick="closeWhatsAppGatewayModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      
+      <div class="mb-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">⚙️</span>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white">WhatsApp Gateway & AI Auto-Dispatch</h3>
+        </div>
+        <p class="text-xs text-slate-500 mt-0.5">
+          Configure how automated reminders are sent to members <strong>24 hours</strong> and <strong>3 hours</strong> before their school session.
+        </p>
+      </div>
+
+      <div class="mb-4 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] font-extrabold uppercase text-emerald-800 dark:text-emerald-300">Scanner Engine Status</span>
+          <span class="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950">
+            <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> ACTIVE (60s cron)
+          </span>
+        </div>
+        <p class="text-[11px] text-emerald-900 dark:text-emerald-200">
+          The autonomous server engine checks each school's meeting time every minute. When the 24h or 3h trigger arrives, reminders are dispatched automatically.
+        </p>
+        <div id="waGatewayStatusText" class="mt-2 text-[11px] pt-1.5 border-t border-emerald-200 dark:border-emerald-800">
+          <span class="text-slate-500 font-bold">Autonomous Engine Mode (In-App + 1-Click Launch)</span>
+        </div>
+      </div>
+
+      <div class="space-y-3 mb-4">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="waWebhookUrlInput">
+            WhatsApp Webhook URL (Optional Gateway)
+          </label>
+          <input id="waWebhookUrlInput" placeholder="https://api.ultramsg.com/... or your custom webhook URL" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200">
+          <p class="text-[10px] text-slate-400 mt-1">
+            Optional: Connect an external gateway (UltraMsg, GreenAPI, Evolution API, or n8n webhook) to automatically send silent background messages.
+          </p>
+        </div>
+
+        <div class="p-3 rounded-2xl bg-slate-50 dark:bg-[#0a1128] border border-slate-200 dark:border-[#1e356d] text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+          <div class="font-bold text-slate-800 dark:text-slate-200">ℹ️ How Automated Reminders Work:</div>
+          <div>1. <strong>24 Hours Before:</strong> The 1-Day reminder is triggered exactly 24 hours prior to the school meeting time.</div>
+          <div>2. <strong>3 Hours Before:</strong> The 3-Hour reminder is triggered 3 hours prior to the school meeting time.</div>
+          <div>3. <strong>Direct Send:</strong> Admin can also click <strong>"📱 Open & Send"</strong> at any time to launch WhatsApp with the member's number prefilled.</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+        <button type="button" onclick="closeWhatsAppGatewayModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+        <button type="button" onclick="saveWhatsAppGatewaySettings()" id="saveWaGatewayBtn" class="px-5 py-2.5 bg-egyptian-700 hover:bg-egyptian-800 text-white font-extrabold text-xs rounded-xl shadow-md transition active:scale-95">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
 
   <footer class="border-t border-slate-200 dark:border-[#1e356d] py-6 text-center text-xs text-slate-500 no-print">
     TEENETWORK &copy; 2026. Academic Session Reporting Hub.
@@ -761,18 +820,18 @@
       const cleanPhone = sanitizePhoneForWhatsApp(rem.clean_phone || rem.whatsapp);
       if (!cleanPhone || cleanPhone.length < 8) {
         flash("", `Cannot open WhatsApp: "${rem.user_name}" has an invalid or missing WhatsApp number.`);
-        await updateReminderDeliveryStatus(rem.user_id, rem.school_id, rem.reminder_type_raw, "FAILED", "Invalid phone number");
+        await updateReminderDeliveryStatus(rem.user_id, rem.school_id, rem.reminder_type_raw, "FAILED", "Invalid phone number", rem.meeting_date_str);
         return;
       }
 
       const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(rem.message)}`;
       window.open(waUrl, "_blank");
 
-      await updateReminderDeliveryStatus(rem.user_id, rem.school_id, rem.reminder_type_raw, "SUCCESSFUL");
+      await updateReminderDeliveryStatus(rem.user_id, rem.school_id, rem.reminder_type_raw, "SUCCESSFUL", "", rem.meeting_date_str);
       flash(`WhatsApp opened to message ${rem.user_name} (${cleanPhone}). Status updated to SUCCESSFUL.`);
     }
 
-    async function updateReminderDeliveryStatus(userId, schoolId, reminderType, newStatus, errorMsg = "") {
+    async function updateReminderDeliveryStatus(userId, schoolId, reminderType, newStatus, errorMsg = "", sessionDate = null) {
       const statusUpper = (newStatus || "SUCCESSFUL").toUpperCase();
       try {
         await api("POST", "/api/reminders/status", {
@@ -780,7 +839,8 @@
           school_id: Number(schoolId),
           reminder_type: reminderType,
           status: statusUpper,
-          error_msg: errorMsg
+          error_msg: errorMsg,
+          session_date: sessionDate
         });
 
         remindersList.forEach(r => {
@@ -795,6 +855,90 @@
         render();
       } catch (e) {
         flash("", e.message || "Failed to update reminder status");
+      }
+    }
+
+    /* ---- Autonomous Auto-Dispatch Triggers ---- */
+    async function runAutoDispatchCheckNow() {
+      try {
+        flash("⚡ Scanning reminders schedule for 24h & 3h due sessions...");
+        const res = await api("POST", "/api/reminders/auto-dispatch");
+        await loadRemindersData();
+        render();
+        if (res.dispatchedCount > 0) {
+          flash(`⚡ Auto-dispatch complete! ${res.dispatchedCount} due reminder(s) automatically processed.`);
+        } else {
+          flash("Auto-dispatch scan complete: All reminders are up-to-date (no new due reminders right now).");
+        }
+      } catch (err) {
+        flash("", err.message || "Failed to run auto-dispatch check");
+      }
+    }
+
+    async function autoDispatchSingleReminder(remId) {
+      const rem = remindersList.find(r => r.id === remId);
+      if (!rem) return flash("", "Reminder record not found.");
+      try {
+        flash(`Dispatching automated reminder to ${rem.user_name}...`);
+        const res = await api("POST", "/api/reminders/dispatch-single", {
+          user_id: rem.user_id,
+          school_id: rem.school_id,
+          reminder_type: rem.reminder_type_raw,
+          session_date: rem.meeting_date_str
+        });
+        await loadRemindersData();
+        render();
+        if (res.ok) {
+          flash(`✅ Reminder for ${rem.user_name} (${rem.school_name}) dispatched successfully.`);
+        } else {
+          flash("", res.error || "Failed to dispatch reminder.");
+        }
+      } catch (err) {
+        flash("", err.message || "Failed to dispatch reminder");
+      }
+    }
+
+    async function openWhatsAppGatewayModal() {
+      try {
+        const res = await api("GET", "/api/reminders/settings");
+        if ($("waWebhookUrlInput")) $("waWebhookUrlInput").value = res.webhook_url || "";
+        if ($("waGatewayStatusText")) {
+          $("waGatewayStatusText").innerHTML = res.has_meta_cloud
+            ? `<span class="text-emerald-600 dark:text-emerald-400 font-bold">Meta WhatsApp Cloud API Active</span>`
+            : (res.webhook_url
+              ? `<span class="text-emerald-600 dark:text-emerald-400 font-bold">Webhook Gateway Connected</span>`
+              : `<span class="text-slate-500 font-bold">Autonomous Engine Mode (In-App + 1-Click Launch)</span>`);
+        }
+        const modal = $("waGatewayModal");
+        if (modal) {
+          modal.classList.remove("hidden");
+          modal.classList.add("flex");
+        }
+      } catch (err) {
+        flash("", err.message || "Failed to load gateway settings");
+      }
+    }
+
+    function closeWhatsAppGatewayModal() {
+      const modal = $("waGatewayModal");
+      if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+      }
+    }
+
+    async function saveWhatsAppGatewaySettings() {
+      const webhook_url = $("waWebhookUrlInput")?.value || "";
+      const btn = $("saveWaGatewayBtn");
+      if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+      try {
+        await api("PUT", "/api/reminders/settings", { webhook_url });
+        closeWhatsAppGatewayModal();
+        flash("WhatsApp gateway configuration saved successfully.");
+      } catch (err) {
+        flash("", err.message || "Failed to save gateway settings");
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Save Settings"; }
       }
     }
 
@@ -2405,21 +2549,30 @@
       return `
         <div class="space-y-6 animate-fade-in">
           <!-- Autonomous AI Engine Banner -->
-          <div class="bg-gradient-to-r from-emerald-950/80 via-emerald-900 to-slate-900 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-500/30">
+          <div class="bg-gradient-to-r from-emerald-950/90 via-emerald-900 to-slate-900 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-500/30">
             <div>
-              <div class="flex items-center gap-2 mb-1">
+              <div class="flex items-center gap-2 mb-1.5 flex-wrap">
                 <span class="text-xl">🤖</span>
                 <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 tracking-wider">AI WhatsApp Outreach Hub</span>
-                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-white tracking-wider">Direct WhatsApp Integration</span>
+                <span class="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 tracking-wider">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Autonomous 24h & 3h Scanner: ACTIVE
+                </span>
               </div>
               <h2 class="text-2xl font-black">WhatsApp Meeting Reminders</h2>
-              <p class="text-xs text-emerald-100 max-w-xl mt-1">
-                Reminders are grouped under each school. Click <strong>"Open & Send"</strong> on any member to launch WhatsApp Web or App with the pre-formatted reminder to dispatch directly. Delivery statuses track <strong>PENDING</strong>, <strong>SUCCESSFUL</strong>, and <strong>FAILED</strong>.
+              <p class="text-xs text-emerald-100 max-w-xl mt-1 leading-relaxed">
+                Reminders are automatically scheduled and dispatched to assigned outreach members <strong>24 hours</strong> and <strong>3 hours</strong> before each school session. Click <strong>"Open & Send"</strong> to dispatch via WhatsApp Web/App, or <strong>"⚡ Dispatch"</strong> to trigger the automated scheduler.
               </p>
             </div>
-            <div class="flex items-center gap-3">
-              <button onclick="loadRemindersData().then(render)" class="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-1.5 shrink-0">
-                <span>🔄 Sync Reminders</span>
+            <div class="flex items-center gap-2 flex-wrap shrink-0">
+              <button type="button" onclick="runAutoDispatchCheckNow()" class="px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 active:scale-95" title="Run background cron check now to dispatch any due 24h or 3h reminders">
+                <span>⚡ Auto-Dispatch Due Reminders</span>
+              </button>
+              <button type="button" onclick="openWhatsAppGatewayModal()" class="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-1.5" title="Configure WhatsApp Webhook Gateway / Meta Cloud API">
+                <span>⚙️ Gateway</span>
+              </button>
+              <button type="button" onclick="loadRemindersData().then(render)" class="px-3 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-1.5" title="Reload reminders data">
+                <span>🔄 Sync</span>
               </button>
             </div>
           </div>
@@ -2585,6 +2738,11 @@
                           <div>
                             <div class="flex items-center gap-2 flex-wrap">
                               <h4 class="font-black text-sm text-slate-900 dark:text-white">${esc(grp.name)}</h4>
+                              ${grp.reminders.length > 0 && grp.reminders[0].meeting_time_formatted ? `
+                                <span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-700 dark:text-egyptian-300 border border-egyptian-200 dark:border-egyptian-800">
+                                  🗓️ Next Session: ${esc(grp.reminders[0].meeting_time_formatted)}
+                                </span>
+                              ` : ''}
                               ${grp.reminders.length > 0 ? `
                                 <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                                   ${grp.reminders.length} Reminder${grp.reminders.length !== 1 ? 's' : ''}
@@ -2649,7 +2807,7 @@
                                 <thead class="bg-slate-100/70 dark:bg-[#0a1128] border-b border-slate-200 dark:border-[#1e356d] text-slate-500 uppercase font-extrabold text-[10px] tracking-wider">
                                   <tr>
                                     <th class="py-2.5 px-4">Member Name & WhatsApp</th>
-                                    <th class="py-2.5 px-3">Reminder Stage</th>
+                                    <th class="py-2.5 px-3">Reminder Stage & Trigger Time</th>
                                     <th class="py-2.5 px-3">Message Preview</th>
                                     <th class="py-2.5 px-3 text-center">Delivery Status</th>
                                     <th class="py-2.5 px-4 text-right">Actions</th>
@@ -2670,13 +2828,23 @@
                                         </td>
 
                                         <td class="py-2.5 px-3">
-                                          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black ${
-                                            rem.reminder_type_raw === '1_day_before'
-                                              ? 'bg-egyptian-50 dark:bg-egyptian-950/60 text-egyptian-700 dark:text-egyptian-300 border border-egyptian-200 dark:border-egyptian-800'
-                                              : 'bg-fiery-50 dark:bg-fiery-950/60 text-fiery-600 dark:text-fiery-400 border border-fiery-200 dark:border-fiery-800'
-                                          }">
-                                            ${rem.reminder_type_raw === '1_day_before' ? '📅 1 Day Before' : '⚡ 3 Hours Before'}
-                                          </span>
+                                          <div class="flex flex-col items-start gap-1">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black ${
+                                              rem.reminder_type_raw === '1_day_before'
+                                                ? 'bg-egyptian-50 dark:bg-egyptian-950/60 text-egyptian-700 dark:text-egyptian-300 border border-egyptian-200 dark:border-egyptian-800'
+                                                : 'bg-fiery-50 dark:bg-fiery-950/60 text-fiery-600 dark:text-fiery-400 border border-fiery-200 dark:border-fiery-800'
+                                            }">
+                                              ${rem.reminder_type_raw === '1_day_before' ? '📅 1 Day (24h) Before' : '⚡ 3 Hours Before'}
+                                            </span>
+                                            <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                              ⏰ ${esc(rem.scheduled_trigger || 'Auto-computed')}
+                                            </div>
+                                            ${rem.is_due && remStatus !== 'SUCCESSFUL' ? `
+                                              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700 animate-pulse">
+                                                ⚡ DUE NOW
+                                              </span>
+                                            ` : ''}
+                                          </div>
                                         </td>
 
                                         <td class="py-2.5 px-3 max-w-xs">
@@ -2717,6 +2885,9 @@
                                           <div class="flex items-center justify-end space-x-1.5 flex-wrap gap-y-1">
                                             <button type="button" onclick="openAndSendWhatsAppReminder('${rem.id}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition flex items-center gap-1.5 active:scale-95" title="Open message on linked WhatsApp account and send to member">
                                               <span>📱 Open & Send</span>
+                                            </button>
+                                            <button type="button" onclick="autoDispatchSingleReminder('${rem.id}')" class="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-sm transition flex items-center gap-1 active:scale-95" title="Dispatch this reminder now via automated engine">
+                                              <span>⚡ Dispatch</span>
                                             </button>
                                             <button type="button" onclick="openPreviewReminderModal('${rem.id}')" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 font-bold text-xs transition" title="Preview complete message text">
                                               <span>👁️ Preview</span>
