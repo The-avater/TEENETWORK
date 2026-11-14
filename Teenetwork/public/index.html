@@ -557,6 +557,70 @@
     </div>
   </div>
 
+  <!-- Modal 9: Assign School to Member Modal -->
+  <div id="assignSchoolModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 animate-fade-in relative">
+      <button onclick="closeAssignSchoolModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      
+      <div class="mb-4">
+        <h3 class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+          <span>🏫 Assign Outreach Schools</span>
+        </h3>
+        <p class="text-xs text-slate-500 mt-0.5">Assign or reassign school outreach centers to <strong id="asmMemberName" class="text-slate-800 dark:text-slate-200"></strong>.</p>
+      </div>
+
+      <input type="hidden" id="asmUserId">
+      <div class="space-y-3 mb-5 max-h-60 overflow-y-auto pr-1">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Select Outreach Schools:</p>
+        <div id="asmSchoolCheckboxList" class="space-y-2">
+          <!-- Dynamic checkboxes inserted here -->
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+        <button type="button" onclick="closeAssignSchoolModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+        <button type="button" onclick="saveAssignSchoolModal()" id="saveAssignSchoolBtn" class="px-5 py-2.5 bg-egyptian-700 hover:bg-egyptian-800 text-white font-bold text-xs rounded-xl shadow">
+          Save School Assignment
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 10: Preview & Edit WhatsApp Reminder Message Modal -->
+  <div id="editReminderModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 animate-fade-in relative">
+      <button onclick="closeEditReminderModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      
+      <div class="mb-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">✏️</span>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white">Preview & Edit WhatsApp Reminder</h3>
+        </div>
+        <p class="text-xs text-slate-500 mt-0.5">
+          Customize the automated WhatsApp message for <strong id="ermMemberName" class="text-slate-800 dark:text-slate-200"></strong> at <strong id="ermSchoolName" class="text-slate-800 dark:text-slate-200"></strong>.
+        </p>
+      </div>
+
+      <input type="hidden" id="ermRemKey">
+
+      <div class="mb-3 p-3 rounded-2xl bg-egyptian-50 dark:bg-egyptian-950/60 border border-egyptian-200 dark:border-egyptian-800 text-[11px] text-egyptian-800 dark:text-egyptian-300">
+        💡 <strong>Placeholders Supported:</strong> <code class="font-bold">{member_name}</code>, <code class="font-bold">{school_name}</code>, <code class="font-bold">{location}</code>, <code class="font-bold">{session_time}</code>
+      </div>
+
+      <div class="space-y-1 mb-4">
+        <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300" for="ermMessageText">WhatsApp Message Body</label>
+        <textarea id="ermMessageText" rows="8" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-mono leading-relaxed outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200"></textarea>
+      </div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+        <button type="button" onclick="closeEditReminderModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+        <button type="button" onclick="saveEditedReminderMessage()" id="saveReminderMsgBtn" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow">
+          Save Customized Message
+        </button>
+      </div>
+    </div>
+  </div>
+
   <footer class="border-t border-slate-200 dark:border-[#1e356d] py-6 text-center text-xs text-slate-500 no-print">
     TEENETWORK &copy; 2026. Academic Session Reporting Hub.
   </footer>
@@ -582,6 +646,12 @@
     let filterQuery = "";
     let filterReminderType = "all";
     let remindersList = [];
+
+    // Admin Export timeframe state:
+    let exportTimeframe = "all"; // "all", "2026", "2026_term1", "2026_term2", "2026_term3", "2025", "custom"
+    let exportStartDate = "";
+    let exportEndDate = "";
+    let exportSchool = "all";
 
     // OTP verification state:
     let pendingOtpEmail = "";
@@ -1042,7 +1112,20 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              ${userSchools.map(sch => `
+              ${userSchools.length === 0 ? `
+                <div class="col-span-full p-8 sm:p-10 rounded-3xl bg-white dark:bg-[#111d3d] border-2 border-dashed border-slate-300 dark:border-[#1e356d] text-center shadow-sm">
+                  <div class="w-16 h-16 rounded-2xl bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-700 dark:text-egyptian-300 flex items-center justify-center text-3xl mx-auto mb-3">
+                    🏫
+                  </div>
+                  <h4 class="font-black text-lg text-slate-900 dark:text-white mb-1">Awaiting School Assignment</h4>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-3 leading-relaxed">
+                    Your account has been registered successfully! You are not currently assigned to any school center.
+                  </p>
+                  <p class="text-[11px] font-semibold text-egyptian-700 dark:text-egyptian-300 bg-egyptian-50 dark:bg-egyptian-950/60 p-2.5 rounded-xl border border-egyptian-200 dark:border-egyptian-800 max-w-md mx-auto">
+                    Once an administrator assigns your outreach school in the member roster, it will appear here immediately for session reporting and contact details.
+                  </p>
+                </div>
+              ` : userSchools.map(sch => `
                 <div onclick="openSchoolActionModal(${sch.id})" class="p-5 rounded-2xl bg-white dark:bg-[#111d3d] border-2 border-slate-200 dark:border-[#1e356d] hover:border-egyptian-600 dark:hover:border-egyptian-400 shadow-sm hover:shadow-lg transition cursor-pointer flex flex-col justify-between group">
                   <div>
                     <div class="w-10 h-10 rounded-xl bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-700 dark:text-egyptian-300 flex items-center justify-center text-xl mb-3 border border-egyptian-200 dark:border-egyptian-800 group-hover:scale-105 transition-transform">
@@ -1745,7 +1828,7 @@
             <button onclick="adminTab='schools'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'schools' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
               🏫 Schools Management (${schools.length})
             </button>
-            <button onclick="adminTab='reminders'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'reminders' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
+            <button onclick="adminTab='reminders'; loadRemindersData().then(render); render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'reminders' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
               🤖 AI WhatsApp Reminders (${remindersList.length})
             </button>
           </div>
@@ -1903,33 +1986,32 @@
     }
 
     function adminRemindersHub() {
-      let filtered = [...remindersList];
-      if (filterReminderType === "1_day_before") {
-        filtered = filtered.filter(r => r.reminder_type_raw === "1_day_before");
-      } else if (filterReminderType === "3_hours_before") {
-        filtered = filtered.filter(r => r.reminder_type_raw === "3_hours_before");
-      }
-
       const sentCount = remindersList.filter(r => r.sent).length;
-      const membersWithWa = [...new Set(remindersList.map(r => r.user_id))].length;
+      const scheduledCount = remindersList.length - sentCount;
+      const membersWithWa = profiles.filter(p => !p.is_admin && (p.whatsapp || p.phone) && (p.school_ids && p.school_ids.length)).length;
+
+      let filtered = [...remindersList];
+      if (filterReminderType !== "all") {
+        filtered = filtered.filter(r => r.reminder_type_raw === filterReminderType);
+      }
 
       return `
         <div class="space-y-6 animate-fade-in">
-          <!-- Top Info Banner -->
-          <div class="bg-gradient-to-r from-emerald-800 via-teal-800 to-egyptian-900 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <!-- Autonomous AI Engine Banner -->
+          <div class="bg-gradient-to-r from-emerald-950/80 via-emerald-900 to-slate-900 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-500/30">
             <div>
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xl">🤖</span>
-                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 tracking-wider">Automated Outreach AI</span>
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 tracking-wider">AI Autonomous Engine Active</span>
               </div>
               <h2 class="text-2xl font-black">AI WhatsApp Meeting Reminders</h2>
               <p class="text-xs text-emerald-100 max-w-xl mt-1">
-                Reminders sent automatically to members on WhatsApp the day before and 3 hours before meeting time, containing school name, location, and meeting schedule.
+                Reminders are dispatched automatically in the background 1 day before and 3 hours before meetings without requiring admin manual approval. You can preview, edit, or customize any message below at any time.
               </p>
             </div>
             <div class="flex items-center gap-3">
-              <button onclick="dispatchAllDueReminders()" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 shrink-0">
-                <span>⚡ Run AI Reminder Dispatch</span>
+              <button onclick="loadRemindersData().then(render)" class="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-1.5 shrink-0">
+                <span>🔄 Sync Reminders</span>
               </button>
             </div>
           </div>
@@ -1937,32 +2019,32 @@
           <!-- Stats Row -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
-              <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center text-xl font-bold border border-emerald-200 dark:border-emerald-800">
-                💬
+              <div class="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center text-xl font-bold border border-blue-200 dark:border-blue-800">
+                👥
               </div>
               <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Scheduled Reminders</p>
-                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${remindersList.length}</h3>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Outreach Members on WhatsApp</p>
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${membersWithWa}</h3>
               </div>
             </div>
 
             <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
-              <div class="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center text-xl font-bold border border-blue-200 dark:border-blue-800">
-                ✅
+              <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center text-xl font-bold border border-emerald-200 dark:border-emerald-800">
+                🤖
               </div>
               <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Dispatched / Sent</p>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Auto-Dispatched</p>
                 <h3 class="text-2xl font-black text-slate-900 dark:text-white">${sentCount}</h3>
               </div>
             </div>
 
             <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex items-center space-x-3.5">
               <div class="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center text-xl font-bold border border-purple-200 dark:border-purple-800">
-                📱
+                ⏳
               </div>
               <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Members on WhatsApp</p>
-                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${membersWithWa}</h3>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Scheduled (Upcoming)</p>
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white">${scheduledCount}</h3>
               </div>
             </div>
           </div>
@@ -1985,7 +2067,7 @@
             ${filtered.length === 0 ? `
               <div class="bg-white dark:bg-[#111d3d] p-8 rounded-3xl border border-slate-200 dark:border-[#1e356d] text-center text-slate-400">
                 <span class="text-3xl block mb-2">📭</span>
-                <p class="text-xs font-semibold">No reminders matching the current filter. Reminders appear automatically once members have assigned schools and registered WhatsApp numbers.</p>
+                <p class="text-xs font-semibold">No reminders matching the current filter. Reminders appear automatically for members who have assigned schools with valid contact numbers.</p>
               </div>` : ''}
 
             ${filtered.map(rem => `
@@ -1999,12 +2081,13 @@
                     <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${rem.reminder_type_raw === '3_hours_before' ? 'bg-fiery-50 text-fiery-700 dark:bg-fiery-950/80 dark:text-fiery-300 border border-fiery-200 dark:border-fiery-800' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800'}">
                       ${esc(rem.reminder_type)}
                     </span>
-                    ${rem.sent ? '<span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">✓ Sent</span>' : '<span class="text-[10px] font-bold text-amber-500">⏳ Ready</span>'}
+                    ${rem.is_customized ? '<span class="text-[10px] font-bold text-egyptian-700 dark:text-egyptian-300 bg-egyptian-50 dark:bg-egyptian-950/80 border border-egyptian-200 dark:border-egyptian-800 px-2 py-0.5 rounded-full">✏️ Custom Message Active</span>' : ''}
+                    ${rem.sent ? '<span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">🤖 AI Auto-Dispatched</span>' : '<span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-2.5 py-0.5 rounded-full">⏳ Scheduled Auto-Dispatch</span>'}
                   </div>
 
                   <div class="text-xs text-slate-500 space-y-0.5">
-                    <p>🏫 <strong>School:</strong> ${esc(rem.school_name)} &bull; 📍 <strong>Location:</strong> ${esc(rem.location)}</p>
-                    <p>⏰ <strong>Meeting Time:</strong> <span class="font-bold text-slate-700 dark:text-slate-200">${esc(rem.session_time)}</span></p>
+                    <p>🏫 <strong>Assigned School:</strong> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(rem.school_name)}</span> &bull; 📍 <strong>Location:</strong> ${esc(rem.location)}</p>
+                    <p>⏰ <strong>Session Meeting Time:</strong> <span class="font-bold text-slate-700 dark:text-slate-200">${esc(rem.session_time)}</span></p>
                   </div>
 
                   <!-- WhatsApp Message Bubble Preview -->
@@ -2013,42 +2096,56 @@
                   </div>
                 </div>
 
-                <!-- Actions: 1-Click WhatsApp Button & Mark as Sent -->
+                <!-- Actions: Preview & Edit Message and 1-Click WhatsApp Link -->
                 <div class="flex flex-col sm:flex-row md:flex-col items-stretch gap-2 shrink-0 w-full md:w-auto">
-                  <a href="${rem.wa_link}" target="_blank" rel="noopener noreferrer" onclick="markReminderDispatched(${rem.user_id}, ${rem.school_id}, '${rem.reminder_type_raw}')" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-1.5 transition">
-                    <span>📲 Send on WhatsApp</span>
+                  <button type="button" onclick="openEditReminderModal('${rem.rem_key}', '${esc(rem.user_name)}', '${esc(rem.school_name)}', ${esc(JSON.stringify(rem.message))}, '${rem.reminder_type_raw}')" class="px-3.5 py-2 bg-egyptian-50 hover:bg-egyptian-100 dark:bg-egyptian-950 dark:hover:bg-egyptian-900 border border-egyptian-200 dark:border-egyptian-800 text-egyptian-700 dark:text-egyptian-300 font-bold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition">
+                    <span>✏️ Preview & Edit</span>
+                  </button>
+                  <a href="${rem.wa_link}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-1.5 transition">
+                    <span>📲 Open in WhatsApp</span>
                   </a>
-                  ${!rem.sent ? `
-                    <button type="button" onclick="markReminderDispatched(${rem.user_id}, ${rem.school_id}, '${rem.reminder_type_raw}')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-300 font-semibold text-[11px] rounded-xl transition">
-                      Mark Sent
-                    </button>` : `
-                    <span class="text-center text-[10px] text-slate-400 py-1">Dispatched</span>`}
                 </div>
               </div>`).join('')}
           </div>
         </div>`;
     }
 
-    async function markReminderDispatched(userId, schoolId, reminderType) {
-      try {
-        await api("POST", "/api/reminders/trigger", { user_id: userId, school_id: schoolId, reminder_type: reminderType });
-        await loadRemindersData();
-        render();
-      } catch (e) {
-        console.error("Failed to mark reminder sent:", e);
-      }
+    let currentEditRemKey = null;
+    function openEditReminderModal(remKey, userName, schoolName, currentMsg, remType) {
+      currentEditRemKey = remKey;
+      $("ermRemKey").value = remKey;
+      $("ermMemberName").textContent = userName;
+      $("ermSchoolName").textContent = schoolName;
+      $("ermMessageText").value = currentMsg;
+
+      const modal = $("editReminderModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
     }
 
-    async function dispatchAllDueReminders() {
+    function closeEditReminderModal() {
+      const modal = $("editReminderModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function saveEditedReminderMessage() {
+      const key = $("ermRemKey").value;
+      const message = $("ermMessageText").value.trim();
+      if (!message) return flash("", "Message text cannot be empty.");
+
+      const btn = $("saveReminderMsgBtn");
+      btn.disabled = true; btn.textContent = "Saving...";
       try {
-        for (const rem of remindersList.filter(r => !r.sent)) {
-          await api("POST", "/api/reminders/trigger", { user_id: rem.user_id, school_id: rem.school_id, reminder_type: rem.reminder_type_raw });
-        }
-        flash("All AI reminders scanned and logged successfully!");
+        await api("PUT", "/api/reminders/message", { key, message });
+        flash("Customized message saved! The AI engine will now use this message.");
+        closeEditReminderModal();
         await loadRemindersData();
         render();
       } catch (e) {
         flash("", e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = "Save Customized Message";
       }
     }
 
@@ -2061,18 +2158,101 @@
         filtered = filtered.filter(r =>
           (r.school || "").toLowerCase().includes(q) ||
           (r.member_name || "").toLowerCase().includes(q) ||
-          (r.details || "").toLowerCase().includes(q)
+          (r.details || "").toLowerCase().includes(q) ||
+          (r.class_level || "").toLowerCase().includes(q) ||
+          (r.remarks || "").toLowerCase().includes(q)
         );
       }
 
+      const allUniqueSchools = [...new Set(reports.map(r => (r.school || '').trim()).filter(Boolean))].sort();
+      const timeframeReports = getTimeframeFilteredReports();
+      const timeframeSchoolCount = new Set(timeframeReports.map(r => (r.school || '').trim().toLowerCase()).filter(Boolean)).size;
+      const timeframeStudentsCount = timeframeReports.reduce((s, r) => s + (Number(r.students) || 0), 0);
+
       return `
-        <div class="space-y-4">
-          <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between no-print">
-            <input type="text" placeholder="Search school, member, keyword..." value="${esc(filterQuery)}" oninput="filterQuery=this.value; renderReportsList();" class="px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-900 dark:text-white outline-none flex-1">
-            <div class="flex items-center space-x-2">
-              <button onclick="exportCsv()" class="px-3.5 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 transition">
-                Export CSV
+        <div class="space-y-5">
+          <!-- MASTER REPORT EXPORT & DOWNLOAD HUB -->
+          <div class="bg-gradient-to-br from-white via-slate-50 to-egyptian-50/20 dark:from-[#111d3d] dark:via-[#0e1834] dark:to-[#0a1128] p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-sm no-print">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200 dark:border-[#1e356d]">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-xl">📑</span>
+                  <h3 class="font-extrabold text-base text-slate-900 dark:text-white">Download All Schools Outreach Reports</h3>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Export all outreach reports across all schools for a chosen timeframe into a single consolidated Word Document (.doc) or Excel Sheet (.xls).
+                </p>
+              </div>
+              <div id="exportStatsBadge" class="self-start md:self-auto px-3.5 py-1.5 rounded-xl bg-egyptian-50 dark:bg-egyptian-950/70 border border-egyptian-200 dark:border-egyptian-800 text-xs font-bold text-egyptian-700 dark:text-egyptian-300">
+                <span class="text-egyptian-700 dark:text-egyptian-300 font-extrabold">${timeframeReports.length}</span> reports across <span class="text-egyptian-700 dark:text-egyptian-300 font-extrabold">${timeframeSchoolCount}</span> schools &bull; <span class="text-fiery-600 font-black">${timeframeStudentsCount.toLocaleString()}</span> students
+              </div>
+            </div>
+
+            <!-- Timeframe & Filter Controls -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Timeframe Presets</label>
+                <select id="exportTimeframeSelect" onchange="onExportTimeframeChange(this.value)" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-900 dark:text-white font-semibold outline-none focus:ring-1 focus:ring-egyptian-600">
+                  <option value="all" ${exportTimeframe === 'all' ? 'selected' : ''}>🌐 All Time (All Years & All Schools)</option>
+                  <option value="2026" ${exportTimeframe === '2026' ? 'selected' : ''}>📅 Full Academic Year 2026</option>
+                  <option value="2026_term1" ${exportTimeframe === '2026_term1' ? 'selected' : ''}>🍂 First Term 2026 (01 Sep - 26 Dec)</option>
+                  <option value="2026_term2" ${exportTimeframe === '2026_term2' ? 'selected' : ''}>❄️ Second Term 2026 (01 Jan - 20 Apr)</option>
+                  <option value="2026_term3" ${exportTimeframe === '2026_term3' ? 'selected' : ''}>☀️ Third Term 2026 (25 Apr - 15 Aug)</option>
+                  <option value="2025" ${exportTimeframe === '2025' ? 'selected' : ''}>🏛️ Academic Year 2025</option>
+                  <option value="custom" ${exportTimeframe === 'custom' ? 'selected' : ''}>⚙️ Custom Date Range...</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">School Scope</label>
+                <select id="exportSchoolSelect" onchange="exportSchool=this.value; updateExportSummary();" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-900 dark:text-white font-semibold outline-none focus:ring-1 focus:ring-egyptian-600">
+                  <option value="all" ${exportSchool === 'all' ? 'selected' : ''}>🌐 All Schools (Master Document)</option>
+                  ${allUniqueSchools.map(sch => `<option value="${esc(sch)}" ${exportSchool === sch ? 'selected' : ''}>🏫 ${esc(sch)}</option>`).join('')}
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Start Date</label>
+                <input type="date" id="exportStartDateInput" value="${exportStartDate}" onchange="exportStartDate=this.value; exportTimeframe='custom'; if ($('exportTimeframeSelect')) $('exportTimeframeSelect').value='custom'; updateExportSummary();" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-900 dark:text-white font-semibold outline-none focus:ring-1 focus:ring-egyptian-600">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">End Date</label>
+                <input type="date" id="exportEndDateInput" value="${exportEndDate}" onchange="exportEndDate=this.value; exportTimeframe='custom'; if ($('exportTimeframeSelect')) $('exportTimeframeSelect').value='custom'; updateExportSummary();" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-900 dark:text-white font-semibold outline-none focus:ring-1 focus:ring-egyptian-600">
+              </div>
+            </div>
+
+            <!-- Action Buttons: Word, Excel, Both, CSV -->
+            <div class="flex flex-wrap items-center gap-2.5 pt-3 border-t border-slate-200/80 dark:border-[#1e356d]/80">
+              <button onclick="downloadReportsAsWord()" class="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-sm transition active:scale-95">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 9V3.5L18.5 9H13z"/></svg>
+                <span>Download Word (.doc)</span>
               </button>
+
+              <button onclick="downloadReportsAsExcel()" class="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm transition active:scale-95">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                <span>Download Excel (.xls)</span>
+              </button>
+
+              <button onclick="downloadBothReports()" class="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-egyptian-700 to-fiery-600 hover:from-egyptian-800 hover:to-fiery-700 text-white font-black text-xs shadow-md transition active:scale-95">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span>Download Both (Word + Excel)</span>
+              </button>
+
+              <button onclick="exportCsv()" class="inline-flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 font-bold text-xs transition">
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Search & Individual Report Cards -->
+          <div class="bg-white dark:bg-[#111d3d] p-4 rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between no-print">
+            <div class="relative flex-1">
+              <input type="text" placeholder="Search school, member, keyword, class, remarks..." value="${esc(filterQuery)}" oninput="filterQuery=this.value; renderReportsList();" class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-egyptian-600">
+              <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+            <div class="text-xs font-semibold text-slate-500">
+              Showing <span id="reportsCountSpan" class="font-bold text-slate-800 dark:text-slate-200">${filtered.length}</span> reports
             </div>
           </div>
 
@@ -2093,24 +2273,32 @@
         filtered = filtered.filter(r =>
           (r.school || "").toLowerCase().includes(q) ||
           (r.member_name || "").toLowerCase().includes(q) ||
-          (r.details || "").toLowerCase().includes(q)
+          (r.details || "").toLowerCase().includes(q) ||
+          (r.class_level || "").toLowerCase().includes(q) ||
+          (r.remarks || "").toLowerCase().includes(q)
         );
       }
       container.innerHTML = renderReportCards(filtered);
+      const span = $("reportsCountSpan");
+      if (span) span.textContent = filtered.length;
     }
 
     function adminMembersHub() {
       return `
         <div class="bg-white dark:bg-[#111d3d] rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm overflow-hidden">
           <div class="p-4 border-b border-slate-200 dark:border-[#1e356d] flex justify-between items-center">
-            <h3 class="font-bold text-sm text-slate-900 dark:text-white">Registered Outreach Members</h3>
-            <span class="text-xs font-bold text-slate-400">${profiles.length} total</span>
+            <div>
+              <h3 class="font-bold text-sm text-slate-900 dark:text-white">Registered Outreach Members</h3>
+              <p class="text-[11px] text-slate-500">Manage member accounts, assign outreach schools, and configure credentials.</p>
+            </div>
+            <span class="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-[#0a1128] px-2.5 py-1 rounded-lg">${profiles.length} total</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-50 dark:bg-[#0a1128] text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-[#1e356d]">
                 <tr>
                   <th class="px-4 py-3">Member</th>
+                  <th class="px-4 py-3">Assigned School(s)</th>
                   <th class="px-4 py-3 text-center">Reports</th>
                   <th class="px-4 py-3 text-center">Students Reached</th>
                   <th class="px-4 py-3 text-right">Actions</th>
@@ -2121,15 +2309,41 @@
                   <tr class="hover:bg-slate-50/50 dark:hover:bg-[#16254f]/40 transition">
                     <td class="px-4 py-3 font-bold text-slate-900 dark:text-white">
                       ${esc(p.name)} ${p.is_admin ? '<span class="text-[9px] bg-fiery-600 text-white px-1.5 py-0.2 rounded font-black">ADMIN</span>' : ''}
-                      <span class="block text-[10px] text-slate-400 font-normal">${esc(p.email)} &bull; 📱 ${esc(p.whatsapp || p.phone || "No WhatsApp")}</span>
+                      <span class="block text-[10px] text-slate-400 font-normal">${esc(p.email)} &bull; 📱 ${esc(p.whatsapp || p.phone || "No Phone")}</span>
                     </td>
+
+                    <td class="px-4 py-3">
+                      ${!p.is_admin ? `
+                        <div class="space-y-1.5 min-w-[200px]">
+                          ${(p.schools && p.schools.length) ? `
+                            <div class="flex flex-wrap gap-1">
+                              ${p.schools.map(s => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300 border border-egyptian-200 dark:border-egyptian-800 text-[10px] font-bold">🏫 ${esc(s.name)}</span>`).join('')}
+                            </div>
+                          ` : '<span class="text-[11px] text-slate-400 italic block">No school assigned</span>'}
+                          <div class="flex items-center gap-1">
+                            <select onchange="assignMemberSchool(${p.id}, this.value)" class="text-[11px] px-2 py-1 rounded-lg border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-800 dark:text-slate-200 font-semibold outline-none focus:ring-1 focus:ring-egyptian-600 max-w-[170px]">
+                              <option value="">-- Quick Assign --</option>
+                              ${schools.map(s => `<option value="${s.id}" ${(p.school_ids || []).includes(s.id) ? 'selected' : ''}>🏫 ${esc(s.name)}</option>`).join('')}
+                            </select>
+                            <button onclick="openAssignSchoolModal(${p.id}, '${esc(p.name)}')" class="px-2 py-1 text-[10px] font-bold text-egyptian-700 dark:text-egyptian-300 hover:underline" title="Assign multiple schools">
+                              + Multi
+                            </button>
+                          </div>
+                        </div>
+                      ` : '<span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">All Schools (Admin)</span>'}
+                    </td>
+
                     <td class="px-4 py-3 text-center font-bold">${p.report_count || 0}</td>
                     <td class="px-4 py-3 text-center font-black text-egyptian-700 dark:text-egyptian-300">${(p.students_reached || 0).toLocaleString()}</td>
+
                     <td class="px-4 py-3 text-right">
                       ${!p.is_admin ? `
                         <div class="flex items-center justify-end space-x-1.5">
+                          <button onclick="openAssignSchoolModal(${p.id}, '${esc(p.name)}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 font-bold text-[11px] transition flex items-center space-x-1" title="Assign or reassign schools to this member">
+                            <span>🏫 Assign</span>
+                          </button>
                           <button onclick="quickResetPassword(${p.id}, '${esc(p.name)}', '${esc(p.phone || '')}', '${esc(p.email)}')" class="px-2.5 py-1 rounded-lg bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-700 dark:text-egyptian-300 hover:bg-egyptian-100 dark:hover:bg-egyptian-900 border border-egyptian-200 dark:border-egyptian-800 font-bold text-[11px] shadow-sm flex items-center space-x-1" title="1-Click Reset to memorable default (teenetwork2026)">
-                            <span>⚡ Quick Reset</span>
+                            <span>⚡ Reset</span>
                           </button>
                           <button onclick="promptResetPassword(${p.id}, '${esc(p.name)}', '${esc(p.phone || '')}')" class="px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-[10px] font-semibold" title="Set a custom password">
                             Custom
@@ -2142,6 +2356,79 @@
             </table>
           </div>
         </div>`;
+    }
+
+    async function assignMemberSchool(userId, schoolId) {
+      try {
+        const schoolIds = schoolId ? [Number(schoolId)] : [];
+        await api("PUT", `/api/users/${userId}/schools`, { school_ids: schoolIds });
+        flash("School assignment updated successfully!");
+        await boot();
+        await loadRemindersData();
+        render();
+      } catch (e) {
+        flash("", e.message);
+      }
+    }
+
+    let currentAssignUserId = null;
+    function openAssignSchoolModal(userId, userName) {
+      currentAssignUserId = userId;
+      const user = profiles.find(p => p.id === userId);
+      const userAssignedIds = (user && user.school_ids) ? user.school_ids : [];
+
+      $("asmUserId").value = userId;
+      $("asmMemberName").textContent = userName;
+
+      const listContainer = $("asmSchoolCheckboxList");
+      if (listContainer) {
+        if (!schools.length) {
+          listContainer.innerHTML = '<p class="text-xs text-slate-400 italic p-3 text-center">No schools registered yet. Please add schools in Schools Management tab.</p>';
+        } else {
+          listContainer.innerHTML = schools.map(s => {
+            const isChecked = userAssignedIds.includes(s.id);
+            return `
+              <label class="flex items-start space-x-3 p-3 rounded-2xl border border-slate-200 dark:border-[#1e356d] hover:bg-slate-50 dark:hover:bg-[#16254f]/50 transition cursor-pointer">
+                <input type="checkbox" name="asm_school" value="${s.id}" ${isChecked ? 'checked' : ''} class="mt-0.5 w-4 h-4 text-egyptian-700 rounded border-slate-300 focus:ring-egyptian-600">
+                <div class="flex-1 text-xs">
+                  <span class="font-bold text-slate-900 dark:text-white block">${esc(s.name)}</span>
+                  <span class="text-[10px] text-slate-500 block">📍 ${esc(s.address || "Location on record")} &bull; ⏰ ${esc(s.session_time || "No schedule")}</span>
+                </div>
+              </label>`;
+          }).join('');
+        }
+      }
+
+      const modal = $("assignSchoolModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeAssignSchoolModal() {
+      const modal = $("assignSchoolModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function saveAssignSchoolModal() {
+      const userId = Number($("asmUserId").value);
+      const checkboxes = document.querySelectorAll('input[name="asm_school"]:checked');
+      const schoolIds = Array.from(checkboxes).map(cb => Number(cb.value));
+
+      const btn = $("saveAssignSchoolBtn");
+      btn.disabled = true; btn.textContent = "Saving...";
+      try {
+        await api("PUT", `/api/users/${userId}/schools`, { school_ids: schoolIds });
+        flash("Assigned schools updated successfully!");
+        closeAssignSchoolModal();
+        await boot();
+        await loadRemindersData();
+        render();
+      } catch (e) {
+        flash("", e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = "Save School Assignment";
+      }
     }
 
     async function quickResetPassword(userId, name, phone, email) {
@@ -2326,15 +2613,621 @@
     }
     document.addEventListener("keydown", e => { if (e.key === "Escape") closeLightbox(); });
 
+    /* Timeframe Export & Master Report Compendium Generator */
+    function getTimeframeFilteredReports() {
+      let list = [...reports];
+
+      // School Scope Filter
+      if (exportSchool && exportSchool !== "all") {
+        list = list.filter(r => (r.school || "").trim().toLowerCase() === exportSchool.trim().toLowerCase());
+      }
+
+      // Timeframe Preset Filter
+      if (exportTimeframe === "2026") {
+        list = list.filter(r => {
+          const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+          return yr === 2026;
+        });
+      } else if (exportTimeframe === "2026_term1") {
+        list = list.filter(r => {
+          const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+          const isTerm = r.academic_session === "First Term";
+          const inDates = r.date ? (r.date >= "2026-09-01" && r.date <= "2026-12-26") : false;
+          return yr === 2026 && (isTerm || inDates);
+        });
+      } else if (exportTimeframe === "2026_term2") {
+        list = list.filter(r => {
+          const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+          const isTerm = r.academic_session === "Second Term";
+          const inDates = r.date ? (r.date >= "2026-01-01" && r.date <= "2026-04-20") : false;
+          return yr === 2026 && (isTerm || inDates);
+        });
+      } else if (exportTimeframe === "2026_term3") {
+        list = list.filter(r => {
+          const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+          const isTerm = r.academic_session === "Third Term";
+          const inDates = r.date ? (r.date >= "2026-04-25" && r.date <= "2026-08-15") : false;
+          return yr === 2026 && (isTerm || inDates);
+        });
+      } else if (exportTimeframe === "2025") {
+        list = list.filter(r => {
+          const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2025);
+          return yr === 2025;
+        });
+      } else if (exportTimeframe === "custom" || exportStartDate || exportEndDate) {
+        if (exportStartDate) list = list.filter(r => !r.date || r.date >= exportStartDate);
+        if (exportEndDate) list = list.filter(r => !r.date || r.date <= exportEndDate);
+      }
+
+      return list;
+    }
+
+    function getTimeframeLabel() {
+      if (exportTimeframe === "2026") return "Full Academic Year 2026";
+      if (exportTimeframe === "2026_term1") return "First Term 2026 (01 Sep 2026 - 26 Dec 2026)";
+      if (exportTimeframe === "2026_term2") return "Second Term 2026 (01 Jan 2026 - 20 Apr 2026)";
+      if (exportTimeframe === "2026_term3") return "Third Term 2026 (25 Apr 2026 - 15 Aug 2026)";
+      if (exportTimeframe === "2025") return "Academic Year 2025";
+      if (exportTimeframe === "custom" || exportStartDate || exportEndDate) {
+        return `Custom Range: ${exportStartDate || 'Start'} to ${exportEndDate || 'Present'}`;
+      }
+      return "All Time (Complete Historical Archive)";
+    }
+
+    function onExportTimeframeChange(val) {
+      exportTimeframe = val;
+      if (val === "2026") {
+        exportStartDate = "2026-01-01";
+        exportEndDate = "2026-12-31";
+      } else if (val === "2026_term1") {
+        exportStartDate = "2026-09-01";
+        exportEndDate = "2026-12-26";
+      } else if (val === "2026_term2") {
+        exportStartDate = "2026-01-01";
+        exportEndDate = "2026-04-20";
+      } else if (val === "2026_term3") {
+        exportStartDate = "2026-04-25";
+        exportEndDate = "2026-08-15";
+      } else if (val === "2025") {
+        exportStartDate = "2025-01-01";
+        exportEndDate = "2025-12-31";
+      } else if (val === "all") {
+        exportStartDate = "";
+        exportEndDate = "";
+      }
+      if ($("exportStartDateInput")) $("exportStartDateInput").value = exportStartDate;
+      if ($("exportEndDateInput")) $("exportEndDateInput").value = exportEndDate;
+      updateExportSummary();
+    }
+
+    function updateExportSummary() {
+      const list = getTimeframeFilteredReports();
+      const schSet = new Set(list.map(r => (r.school || "").trim().toLowerCase()).filter(Boolean));
+      const totStudents = list.reduce((sum, r) => sum + (Number(r.students) || 0), 0);
+      const badge = $("exportStatsBadge");
+      if (badge) {
+        badge.innerHTML = `<span class="text-egyptian-700 dark:text-egyptian-300 font-extrabold">${list.length}</span> reports across <span class="text-egyptian-700 dark:text-egyptian-300 font-extrabold">${schSet.size}</span> schools &bull; <span class="text-fiery-600 font-black">${totStudents.toLocaleString()}</span> students`;
+      }
+    }
+
+    /* 1. Word Document Export (.doc) */
+    function downloadReportsAsWord() {
+      const list = getTimeframeFilteredReports();
+      if (!list.length) {
+        return flash("", "No session reports found for timeframe: " + getTimeframeLabel());
+      }
+
+      // Sort by school ascending, then date descending
+      const sorted = [...list].sort((a, b) => {
+        const schComp = (a.school || "").localeCompare(b.school || "");
+        if (schComp !== 0) return schComp;
+        return (b.date || "").localeCompare(a.date || "");
+      });
+
+      // School aggregation & distinct reached calculation
+      const schoolMap = {};
+      sorted.forEach(r => {
+        const sch = (r.school || "Unassigned").trim();
+        const k = sch.toLowerCase();
+        if (!schoolMap[k]) {
+          schoolMap[k] = { name: sch, centerId: r.center_id, sessions: 0, sumStudents: 0, ministers: new Set(), reports: [] };
+        }
+        schoolMap[k].sessions += 1;
+        schoolMap[k].sumStudents += Number(r.students) || 0;
+        if (r.member_name) schoolMap[k].ministers.add(r.member_name);
+        schoolMap[k].reports.push(r);
+      });
+
+      const schoolList = Object.values(schoolMap).sort((a, b) => a.name.localeCompare(b.name));
+      const totalStudents = sorted.reduce((acc, r) => acc + (Number(r.students) || 0), 0);
+      const distinctStudents = schoolList.reduce((acc, s) => acc + Math.round(s.sumStudents / s.sessions), 0);
+      const uniqueMinisters = [...new Set(sorted.map(r => r.member_name).filter(Boolean))];
+      const timeframeTitle = getTimeframeLabel();
+      const scopeTitle = exportSchool === "all" ? "All Schools (Unified Master Report)" : exportSchool;
+      const genDate = new Date().toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" });
+      const adminName = me && me.name ? me.name : "Administrator";
+
+      // School-by-School Overview Rows
+      const schoolSummaryRows = schoolList.map((s, idx) => {
+        const avgPerSession = Math.round(s.sumStudents / s.sessions);
+        const centerName = cName(s.centerId);
+        const minList = Array.from(s.ministers).join(", ") || "General";
+        return `
+          <tr>
+            <td style="text-align:center;">${idx + 1}</td>
+            <td><strong>${esc(s.name)}</strong></td>
+            <td>${esc(centerName)}</td>
+            <td style="text-align:center;">${s.sessions}</td>
+            <td style="text-align:right;">${s.sumStudents.toLocaleString()}</td>
+            <td style="text-align:right;">${avgPerSession.toLocaleString()}</td>
+            <td>${esc(minList)}</td>
+          </tr>`;
+      }).join('');
+
+      // Detailed Sessions Sections (Grouped by School)
+      const detailedSectionsHtml = schoolList.map(s => {
+        const centerName = cName(s.centerId);
+        const sessionCards = s.reports.map(r => {
+          const userObj = profiles.find(p => p.id === r.member_id) || {};
+          const phoneStr = userObj.whatsapp || userObj.phone || "";
+          const ministerContact = phoneStr ? `${esc(r.member_name || "Unknown")} (${esc(phoneStr)})` : esc(r.member_name || "Unknown");
+          const classStr = r.class_level ? esc(r.class_level) : "General Audience";
+
+          return `
+            <div style="margin-bottom:14px; border:1px solid #cbd5e1; page-break-inside:avoid; background-color:#ffffff;">
+              <div style="background-color:#1034A6; color:#ffffff; padding:7px 10px; font-weight:bold; font-size:10pt;">
+                <span>Session #${r.id} &bull; ${esc(r.date || "No date")}</span>
+                <span style="float:right; color:#fee2e2;">Class: ${classStr} | ${esc(r.academic_session || "First Term")} ${r.year || 2026}</span>
+              </div>
+              <div style="padding:10px;">
+                <table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+                  <tr>
+                    <td style="width:18%; font-weight:bold; color:#1034A6; font-size:9pt; padding:2px 0;">Reporting Minister:</td>
+                    <td style="font-size:9pt; padding:2px 0;">${ministerContact}</td>
+                    <td style="width:18%; font-weight:bold; color:#1034A6; font-size:9pt; padding:2px 0;">Students Present:</td>
+                    <td style="font-size:9pt; font-weight:bold; color:#E2252B; padding:2px 0;">${(Number(r.students) || 0).toLocaleString()} students</td>
+                  </tr>
+                  ${r.attendance ? `
+                  <tr>
+                    <td style="font-weight:bold; color:#1034A6; font-size:9pt; padding:2px 0;">Audience Notes:</td>
+                    <td colspan="3" style="font-size:9pt; padding:2px 0;">${esc(r.attendance)}</td>
+                  </tr>` : ''}
+                </table>
+
+                <div style="margin-top:6px; padding:8px 10px; background-color:#f8fafc; border-left:3px solid #1034A6;">
+                  <div style="font-weight:bold; color:#1034A6; font-size:9.5pt; margin-bottom:3px;">📖 Topic & Session Teaching:</div>
+                  <div style="font-size:9.5pt; line-height:1.45; color:#1e293b; white-space:pre-wrap;">${esc(r.details || "None reported")}</div>
+                </div>
+
+                ${r.remarks ? `
+                <div style="margin-top:6px; padding:6px 10px; background-color:#eff6ff; border-left:3px solid #2563eb;">
+                  <div style="font-weight:bold; color:#1d4ed8; font-size:9pt; margin-bottom:2px;">✨ Breakthrough Highlights & Remarks:</div>
+                  <div style="font-size:9pt; color:#1e293b; white-space:pre-wrap;">${esc(r.remarks)}</div>
+                </div>` : ''}
+
+                ${r.challenges ? `
+                <div style="margin-top:6px; padding:6px 10px; background-color:#fff1f2; border-left:3px solid #E2252B;">
+                  <div style="font-weight:bold; color:#be123c; font-size:9pt; margin-bottom:2px;">⚠️ Challenges & Prayer Points:</div>
+                  <div style="font-size:9pt; color:#1e293b; white-space:pre-wrap;">${esc(r.challenges)}</div>
+                </div>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+
+        return `
+          <div style="margin-top:24px; margin-bottom:12px;">
+            <div style="background-color:#0a1128; color:#ffffff; padding:10px 14px; font-size:12pt; font-weight:bold; border-left:5px solid #E2252B;">
+              🏫 ${esc(s.name)} <span style="font-size:9.5pt; font-weight:normal; color:#cbd5e1; margin-left:12px;">(${centerName} &bull; ${s.sessions} session${s.sessions > 1 ? 's' : ''} &bull; ${s.sumStudents.toLocaleString()} total students)</span>
+            </div>
+            <div style="padding-top:10px;">
+              ${sessionCards}
+            </div>
+          </div>`;
+      }).join('');
+
+      const wordHtml = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset='utf-8'>
+          <title>TEENETWORK - Comprehensive Outreach Report</title>
+          <!--[if gte mso 9]>
+          <xml>
+            <w:WordDocument>
+              <w:View>Print</w:View>
+              <w:Zoom>100</w:Zoom>
+              <w:DoNotOptimizeForBrowser/>
+            </w:WordDocument>
+          </xml>
+          <![endif]-->
+          <style>
+            @page {
+              size: 8.5in 11.0in;
+              margin: 0.8in 0.8in 0.8in 0.8in;
+              mso-header-margin: 0.5in;
+              mso-footer-margin: 0.5in;
+            }
+            body {
+              font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+              color: #0f172a;
+              background-color: #ffffff;
+              line-height: 1.45;
+              font-size: 10pt;
+            }
+            h1, h2, h3, h4 {
+              font-family: 'Segoe UI', Arial, sans-serif;
+            }
+            .brand-header {
+              border-bottom: 3.5px solid #1034A6;
+              padding-bottom: 12px;
+              margin-bottom: 16px;
+            }
+            .brand-title {
+              font-size: 19pt;
+              font-weight: 900;
+              color: #1034A6;
+              margin: 0 0 2px 0;
+              letter-spacing: 0.5px;
+            }
+            .brand-subtitle {
+              font-size: 12pt;
+              font-weight: 800;
+              color: #E2252B;
+              margin: 0 0 4px 0;
+              text-transform: uppercase;
+            }
+            .brand-motto {
+              font-size: 9pt;
+              color: #64748b;
+              margin: 0;
+              font-style: italic;
+            }
+            .meta-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 14px 0 20px 0;
+              background-color: #f8fafc;
+              border: 1px solid #cbd5e1;
+            }
+            .meta-table td {
+              padding: 6px 10px;
+              font-size: 9pt;
+              border: 1px solid #e2e8f0;
+            }
+            .meta-label {
+              font-weight: bold;
+              color: #1034A6;
+              width: 24%;
+              background-color: #f1f5f9;
+            }
+            .section-title {
+              font-size: 12pt;
+              font-weight: 800;
+              color: #1034A6;
+              border-bottom: 2px solid #cbd5e1;
+              padding-bottom: 4px;
+              margin: 22px 0 10px 0;
+              text-transform: uppercase;
+            }
+            .kpi-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            .kpi-table th {
+              background-color: #1034A6;
+              color: #ffffff;
+              font-size: 8.5pt;
+              font-weight: bold;
+              text-transform: uppercase;
+              padding: 8px 6px;
+              text-align: center;
+              border: 1px solid #0a1128;
+            }
+            .kpi-table td {
+              background-color: #f8fafc;
+              font-size: 13pt;
+              font-weight: 900;
+              color: #0f172a;
+              padding: 10px 6px;
+              text-align: center;
+              border: 1px solid #cbd5e1;
+            }
+            .data-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            .data-table th {
+              background-color: #1034A6;
+              color: #ffffff;
+              font-size: 8.5pt;
+              font-weight: bold;
+              padding: 7px 8px;
+              text-align: left;
+              border: 1px solid #0a1128;
+            }
+            .data-table td {
+              border: 1px solid #cbd5e1;
+              padding: 7px 8px;
+              font-size: 9pt;
+              vertical-align: top;
+            }
+            .data-table tr:nth-child(even) td {
+              background-color: #f8fafc;
+            }
+            .footer {
+              margin-top: 36px;
+              padding-top: 12px;
+              border-top: 1px solid #cbd5e1;
+              font-size: 8.5pt;
+              color: #64748b;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <!-- Brand Header -->
+          <div class="brand-header">
+            <h1 class="brand-title">THE EXCELLENCE EVANGELICAL NETWORK (TEENETWORK)</h1>
+            <div class="brand-subtitle">COMPREHENSIVE OUTREACH SESSIONS REPORT &bull; UNIFIED COMPENDIUM</div>
+            <p class="brand-motto">"Raising Excellent Leaders for Christ across Schools and Colleges"</p>
+          </div>
+
+          <!-- Document Metadata Table -->
+          <table class="meta-table">
+            <tr>
+              <td class="meta-label">Reporting Period:</td>
+              <td><strong>${esc(timeframeTitle)}</strong></td>
+              <td class="meta-label">Target Scope:</td>
+              <td><strong>${esc(scopeTitle)}</strong></td>
+            </tr>
+            <tr>
+              <td class="meta-label">Date Generated:</td>
+              <td>${esc(genDate)}</td>
+              <td class="meta-label">Authorized Admin:</td>
+              <td>${esc(adminName)}</td>
+            </tr>
+            <tr>
+              <td class="meta-label">Total Reports Compiled:</td>
+              <td><strong>${sorted.length} Session Reports</strong></td>
+              <td class="meta-label">Total Schools Covered:</td>
+              <td><strong>${schoolList.length} Schools</strong></td>
+            </tr>
+          </table>
+
+          <!-- Executive Summary KPIs -->
+          <div class="section-title">1. Executive Summary & Impact KPIs</div>
+          <table class="kpi-table">
+            <thead>
+              <tr>
+                <th>Schools Reached</th>
+                <th>Sessions Conducted</th>
+                <th>Total Student Attendance</th>
+                <th>Distinct Students Reached</th>
+                <th>Active Ministers</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${schoolList.length}</td>
+                <td>${sorted.length}</td>
+                <td style="color:#1034A6;">${totalStudents.toLocaleString()}</td>
+                <td style="color:#E2252B;">${distinctStudents.toLocaleString()}</td>
+                <td>${uniqueMinisters.length}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="font-size:8.5pt; color:#64748b; margin-top:-14px; margin-bottom:20px; font-style:italic;">
+            * Distinct Students Reached is calculated by computing the average student attendance per school across visits to avoid repeat-counting recurring audiences.
+          </p>
+
+          <!-- School-by-School Overview Breakdown -->
+          <div class="section-title">2. School-by-School Summary Table</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:5%; text-align:center;">#</th>
+                <th style="width:25%;">School Name</th>
+                <th style="width:16%;">Assigned Center</th>
+                <th style="width:10%; text-align:center;">Sessions</th>
+                <th style="width:14%; text-align:right;">Total Students</th>
+                <th style="width:12%; text-align:right;">Avg / Session</th>
+                <th style="width:18%;">Outreach Ministers</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${schoolSummaryRows}
+            </tbody>
+          </table>
+
+          <!-- Detailed Session Breakdown Grouped by School -->
+          <div class="section-title">3. Detailed Session Reports (School-by-School)</div>
+          ${detailedSectionsHtml}
+
+          <!-- Authentication Sign-Off Block -->
+          <div class="footer">
+            <p><strong>TEENETWORK Central Administrative Secretariat</strong> &bull; Official Outreach Ministry Archive</p>
+            <p>Generated automatically from TEENETWORK Reporting Hub for authorized administrative and review purposes.</p>
+          </div>
+        </body>
+        </html>`;
+
+      const blob = new Blob(["\uFEFF" + wordHtml], { type: "application/msword;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const safeTime = (exportTimeframe || "all").replace(/[^a-zA-Z0-9_-]/g, "_");
+      a.download = `teenetwork-master-report-${safeTime}-${new Date().toISOString().slice(0, 10)}.doc`;
+      a.click();
+      flash(`Master Word Report downloaded successfully (${sorted.length} reports across ${schoolList.length} schools).`);
+    }
+
+    /* 2. Excel Spreadsheet Export (.xls) */
+    function downloadReportsAsExcel() {
+      const list = getTimeframeFilteredReports();
+      if (!list.length) {
+        return flash("", "No session reports found for timeframe: " + getTimeframeLabel());
+      }
+
+      // Sort by school ascending, then date descending
+      const sorted = [...list].sort((a, b) => {
+        const schComp = (a.school || "").localeCompare(b.school || "");
+        if (schComp !== 0) return schComp;
+        return (b.date || "").localeCompare(a.date || "");
+      });
+
+      // School aggregation & distinct reached calculation
+      const schoolStats = {};
+      sorted.forEach(r => {
+        const sch = (r.school || "Unassigned").trim();
+        const k = sch.toLowerCase();
+        if (!schoolStats[k]) schoolStats[k] = { name: sch, sessions: 0, sumStudents: 0 };
+        schoolStats[k].sessions += 1;
+        schoolStats[k].sumStudents += Number(r.students) || 0;
+      });
+      const schoolList = Object.values(schoolStats);
+      const totalStudents = sorted.reduce((acc, r) => acc + (Number(r.students) || 0), 0);
+      const distinctStudents = schoolList.reduce((acc, s) => acc + Math.round(s.sumStudents / s.sessions), 0);
+      const uniqueMinisters = [...new Set(sorted.map(r => r.member_name).filter(Boolean))];
+      const timeframeTitle = getTimeframeLabel();
+      const scopeTitle = exportSchool === "all" ? "All Schools (Unified Master Report)" : exportSchool;
+
+      const excelRows = sorted.map((r, idx) => {
+        const userObj = profiles.find(p => p.id === r.member_id) || {};
+        const phoneStr = userObj.whatsapp || userObj.phone || "";
+        const centerName = cName(r.center_id);
+        const bg = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
+
+        return `
+          <tr style="background-color:${bg};">
+            <td style="text-align:center;">${r.id}</td>
+            <td><strong>${esc(r.school)}</strong></td>
+            <td>${esc(centerName)}</td>
+            <td style="text-align:center;">${r.year || 2026}</td>
+            <td style="text-align:center;">${esc(r.academic_session || "First Term")}</td>
+            <td style="text-align:center;">${esc(r.class_level || "Not specified")}</td>
+            <td class="date">${esc(r.date || "")}</td>
+            <td class="num">${Number(r.students) || 0}</td>
+            <td>${esc(r.member_name || "Unknown")}</td>
+            <td>${esc(phoneStr)}</td>
+            <td>${esc(r.attendance || "")}</td>
+            <td>${esc(r.details || "")}</td>
+            <td>${esc(r.remarks || "")}</td>
+            <td>${esc(r.challenges || "")}</td>
+          </tr>`;
+      }).join('');
+
+      const excelHtml = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="utf-8">
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Master Outreach Report</x:Name>
+                  <x:WorksheetOptions>
+                    <x:DisplayGridlines/>
+                  </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+          <style>
+            body { font-family: Calibri, Arial, sans-serif; }
+            .title-hdr { background-color: #1034A6; color: #ffffff; font-size: 15pt; font-weight: bold; text-align: left; padding: 10px; }
+            .meta-hdr { background-color: #f1f5f9; color: #334155; font-size: 10pt; font-weight: bold; padding: 6px; }
+            .kpi-hdr { background-color: #e0e7ff; color: #1034A6; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; }
+            .kpi-val { background-color: #f8fafc; font-size: 12pt; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; }
+            th { background-color: #1034A6; color: #ffffff; font-weight: bold; border: 1px solid #0a1128; padding: 7px 8px; text-align: left; font-size: 10pt; }
+            td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 9.5pt; vertical-align: top; }
+            .num { mso-number-format: "\\#\\,\\#\\#0"; text-align: right; font-weight: bold; }
+            .date { mso-number-format: "yyyy-mm-dd"; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <tr>
+              <td colspan="14" class="title-hdr">THE EXCELLENCE EVANGELICAL NETWORK (TEENETWORK) - OUTREACH REPORTS MASTER DATABASE</td>
+            </tr>
+            <tr>
+              <td colspan="14" class="meta-hdr">Timeframe: ${esc(timeframeTitle)} &bull; Scope: ${esc(scopeTitle)} &bull; Exported On: ${new Date().toLocaleString()}</td>
+            </tr>
+            <tr><td colspan="14">&nbsp;</td></tr>
+            <!-- KPI Summary Block -->
+            <tr>
+              <td class="kpi-hdr" colspan="2">Total Reports</td>
+              <td class="kpi-hdr" colspan="2">Schools Covered</td>
+              <td class="kpi-hdr" colspan="3">Total Student Attendance</td>
+              <td class="kpi-hdr" colspan="3">Distinct Students Reached (Avg)</td>
+              <td class="kpi-hdr" colspan="4">Active Outreach Ministers</td>
+            </tr>
+            <tr>
+              <td class="kpi-val" colspan="2">${sorted.length}</td>
+              <td class="kpi-val" colspan="2">${schoolList.length}</td>
+              <td class="kpi-val" colspan="3" style="color:#1034A6;">${totalStudents.toLocaleString()}</td>
+              <td class="kpi-val" colspan="3" style="color:#E2252B;">${distinctStudents.toLocaleString()}</td>
+              <td class="kpi-val" colspan="4">${uniqueMinisters.length}</td>
+            </tr>
+            <tr><td colspan="14">&nbsp;</td></tr>
+            <!-- Table Headers -->
+            <thead>
+              <tr>
+                <th style="width:70px; text-align:center;">Report ID</th>
+                <th style="width:220px;">School Name</th>
+                <th style="width:160px;">Assigned Center</th>
+                <th style="width:80px; text-align:center;">Year</th>
+                <th style="width:120px; text-align:center;">Academic Session</th>
+                <th style="width:110px; text-align:center;">Class Level</th>
+                <th style="width:100px; text-align:center;">Session Date</th>
+                <th style="width:100px; text-align:right;">Students Count</th>
+                <th style="width:180px;">Reporting Minister</th>
+                <th style="width:140px;">Minister WhatsApp</th>
+                <th style="width:200px;">Key Attendees / Audience</th>
+                <th style="width:340px;">Topic & Session Details</th>
+                <th style="width:260px;">Remarks / Breakthroughs</th>
+                <th style="width:260px;">Challenges Faced</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${excelRows}
+            </tbody>
+          </table>
+        </body>
+        </html>`;
+
+      const blob = new Blob(["\uFEFF" + excelHtml], { type: "application/vnd.ms-excel;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const safeTime = (exportTimeframe || "all").replace(/[^a-zA-Z0-9_-]/g, "_");
+      a.download = `teenetwork-master-report-${safeTime}-${new Date().toISOString().slice(0, 10)}.xls`;
+      a.click();
+      flash(`Master Excel Spreadsheet downloaded successfully (${sorted.length} reports across ${schoolList.length} schools).`);
+    }
+
+    /* 3. Download Both (Word + Excel) Single-Click Dispatcher */
+    function downloadBothReports() {
+      downloadReportsAsWord();
+      setTimeout(() => {
+        downloadReportsAsExcel();
+      }, 600);
+      flash("Generating both Word (.doc) and Excel (.xls) master documents...");
+    }
+
+    /* 4. CSV Fallback Export */
     function exportCsv() {
       const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
-      const rows = [["Report ID", "School", "Year", "Academic Session", "Member", "Date", "Students Present", "Attendance", "Details", "Remarks", "Challenges"]];
-      reports.forEach(r => {
+      const rows = [["Report ID", "School", "Center", "Year", "Academic Session", "Class Level", "Reporting Member", "Date", "Students Present", "Attendance Notes", "Session Details & Topic", "Remarks", "Challenges"]];
+      const list = getTimeframeFilteredReports();
+      list.forEach(r => {
         rows.push([
           r.id,
           r.school,
+          cName(r.center_id),
           r.year || 2026,
           r.academic_session || "First Term",
+          r.class_level || "Not specified",
           r.member_name,
           r.date,
           r.students,
@@ -2344,11 +3237,13 @@
           r.challenges
         ]);
       });
-      const blob = new Blob([rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
+      const blob = new Blob(["\uFEFF" + rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `teenetwork-reports-${new Date().toISOString().slice(0, 10)}.csv`;
+      const safeTime = (exportTimeframe || "all").replace(/[^a-zA-Z0-9_-]/g, "_");
+      a.download = `teenetwork-reports-${safeTime}-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
+      flash(`CSV export downloaded (${list.length} reports).`);
     }
 
     /* Authentication & Profile Modals */
@@ -2359,7 +3254,7 @@
       $("modalUserRole").textContent = me.is_admin ? "Administrator" : "Outreach Member";
       $("profEmail").value = me.email || "";
       $("profName").value = me.name || "";
-      $("profPhone").value = me.phone || "";
+      $("profPhone").value = me.whatsapp || me.phone || "";
       $("profBio").value = me.bio || "";
       const modal = $("profileModal");
       modal.classList.remove("hidden");
@@ -2379,10 +3274,16 @@
       const btn = $("saveProfileBtn");
       btn.disabled = true; btn.textContent = "Saving...";
       try {
-        await api("PUT", "/api/profile", { name, phone, bio });
-        flash("Profile updated!");
+        await api("PUT", "/api/profile", { name, phone, whatsapp: phone, bio });
+        me.name = name;
+        me.phone = phone;
+        me.whatsapp = phone;
+        me.bio = bio;
+        flash("Profile and WhatsApp contact number updated!");
         closeProfileModal();
         await boot();
+        await loadRemindersData();
+        render();
       } catch (e) {
         flash("", e.message);
       } finally {

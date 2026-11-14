@@ -158,12 +158,15 @@ async function q(sql, p = []) {
     const user = localDb.users.find(u => u.id === Number(p[0]));
     return { rows: user ? [{ ...user }] : [] };
   }
-  if (s.includes("update users set name=$1, phone=$2, bio=$3 where id=$4")) {
-    const user = localDb.users.find(u => u.id === Number(p[3]));
+  if (s.includes("update users set name=$1, phone=$2, whatsapp=$3, bio=$4 where id=$5") ||
+      s.includes("update users set name=$1, phone=$2, bio=$3 where id=$4")) {
+    const uId = Number(p[4] !== undefined ? p[4] : p[3]);
+    const user = localDb.users.find(u => u.id === uId);
     if (user) {
       user.name = p[0];
       user.phone = p[1] || "";
-      user.bio = p[2] || "";
+      user.whatsapp = p[2] !== undefined && p[4] !== undefined ? (p[2] || "") : (user.whatsapp || p[1] || "");
+      user.bio = p[4] !== undefined ? (p[3] || "") : (p[2] || "");
       saveLocalDb();
     }
     return { rowCount: user ? 1 : 0, rows: [] };
@@ -280,8 +283,45 @@ async function q(sql, p = []) {
   // user_schools queries
   if (s.includes("select school_id from user_schools where user_id=$1")) {
     const user = localDb.users.find(u => u.id === Number(p[0]));
-    const ids = user ? (user.school_ids || [1, 2, 3]) : [1, 2, 3];
+    const ids = user ? (user.school_ids || []) : [];
     return { rows: ids.map(sid => ({ school_id: sid })) };
+  }
+  if (s.includes("select user_id, school_id from user_schools")) {
+    const rows = [];
+    (localDb.users || []).forEach(u => {
+      (u.school_ids || []).forEach(sid => rows.push({ user_id: u.id, school_id: sid }));
+    });
+    return { rows };
+  }
+  if (s.includes("delete from user_schools where user_id=$1")) {
+    const user = localDb.users.find(u => u.id === Number(p[0]));
+    if (user) {
+      user.school_ids = [];
+      saveLocalDb();
+    }
+    return { rows: [] };
+  }
+  if (s.includes("insert into user_schools(user_id, school_id)")) {
+    const uId = Number(p[0]), sId = Number(p[1]);
+    const user = localDb.users.find(u => u.id === uId);
+    if (user) {
+      user.school_ids = user.school_ids || [];
+      if (!user.school_ids.includes(sId)) user.school_ids.push(sId);
+      saveLocalDb();
+    }
+    return { rows: [] };
+  }
+
+  // reminder_templates queries
+  if (s.includes("from reminder_templates")) {
+    const rows = Object.entries(localDb.reminder_templates || {}).map(([key, message]) => ({ key, message }));
+    return { rows };
+  }
+  if (s.includes("insert into reminder_templates") || s.includes("update reminder_templates")) {
+    localDb.reminder_templates = localDb.reminder_templates || {};
+    localDb.reminder_templates[p[0]] = p[1];
+    saveLocalDb();
+    return { rows: [{ key: p[0] }] };
   }
 
   // centers queries
@@ -550,6 +590,11 @@ async function setup() {
       session_date text,
       sent_at timestamptz default now()
     );`).catch(() => {});
+    await q(`create table if not exists reminder_templates (
+      key text primary key,
+      message text not null,
+      updated_at timestamptz default now()
+    );`).catch(() => {});
 
     // Seed default schools in PostgreSQL if empty
     const count = (await q("select count(*) from schools")).rows[0].count;
@@ -626,9 +671,10 @@ async function getUserSchools(user, allSchools) {
   } else {
     assignedIds = user.school_ids || [];
   }
-  // If no explicit school assigned, provide all schools in the user's centres or all default schools
+  // RULE: Newly created accounts must NOT have schools automatically assigned.
+  // Return empty array if no school has explicitly been assigned by an admin.
   if (!assignedIds.length) {
-    return allSchools;
+    return [];
   }
   return allSchools.filter(s => assignedIds.includes(s.id));
 }
@@ -836,12 +882,13 @@ app.get("/api/me", auth, wrap(async (req, res) => {
 /* ---- User Profile Update ---- */
 app.put("/api/profile", auth, wrap(async (req, res) => {
   const name = String(req.body.name || "").trim();
-  const phone = String(req.body.phone || "").trim();
+  const phone = String(req.body.phone || req.body.whatsapp || "").trim();
+  const whatsapp = String(req.body.whatsapp || req.body.phone || "").trim();
   const bio = String(req.body.bio || "").trim();
 
   if (!name) return res.status(400).json({ error: "Name cannot be empty." });
 
-  await q("update users set name=$1, phone=$2, bio=$3 where id=$4", [name, phone, bio, req.user.id]);
+  await q("update users set name=$1, phone=$2, whatsapp=$3, bio=$4 where id=$5", [name, phone, whatsapp, bio, req.user.id]);
   res.json({ ok: true });
 }));
 
@@ -868,13 +915,21 @@ app.get("/api/data", auth, wrap(async (req, res) => {
     ? (await q("select id,name,email,center_id,is_admin,phone,bio,created_at,last_active_at,whatsapp from users order by name")).rows
     : [];
 
+  const allUserSchoolsRows = (await q("select user_id, school_id from user_schools")).rows;
+
   const users = rawUsers.map(user => {
     const userReports = reports.filter(rep => rep.member_id === user.id);
     const studentsReached = userReports.reduce((acc, rep) => acc + (Number(rep.students) || 0), 0);
+    const userAssignedSchoolIds = allUserSchoolsRows
+      .filter(row => Number(row.user_id) === Number(user.id))
+      .map(row => Number(row.school_id));
+    const userAssignedSchools = allSchools.filter(s => userAssignedSchoolIds.includes(Number(s.id)));
     return {
       ...user,
       report_count: userReports.length,
-      students_reached: studentsReached
+      students_reached: studentsReached,
+      school_ids: userAssignedSchoolIds,
+      schools: userAssignedSchools
     };
   });
 
@@ -936,16 +991,25 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
   const allUsers = (await q("select id,name,email,phone,whatsapp,is_admin from users order by name")).rows;
   const allSchools = (await q("select * from schools order by name")).rows;
   const remindersSent = (await q("select * from reminders_sent order by sent_at desc")).rows;
+  const customTemplates = (await q("select key, message from reminder_templates")).rows;
+  const customMap = {};
+  customTemplates.forEach(t => { customMap[t.key] = t.message; });
 
   const reminders = [];
 
   for (const user of allUsers) {
+    if (user.is_admin) continue; // Reminders are strictly for outreach members
+
     const userPhone = (user.whatsapp || user.phone || "").trim();
     if (!userPhone) continue;
     const cleanPhone = userPhone.replace(/[^0-9]/g, "");
     if (!cleanPhone) continue;
 
+    // RULE: Only members who have assigned schools with the school attached!
     const userSchools = await getUserSchools(user, allSchools);
+    if (!userSchools || !userSchools.length) {
+      continue;
+    }
 
     for (const school of userSchools) {
       const schoolAddress = school.address || "Assigned School Outreach Center";
@@ -955,11 +1019,20 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
       const keyDayBefore = `${user.id}_${school.id}_1day`;
       const sent1Day = remindersSent.find(r => r.user_id === user.id && r.school_id === school.id && r.reminder_type === "1_day_before");
 
-      const msgDayBefore = `🌟 *TEENETWORK OUTREACH REMINDER (1 Day Before)*\n\nHello *${user.name}*,\nThis is a friendly reminder of your upcoming outreach session tomorrow:\n\n🏫 *School:* ${school.name}\n📍 *Location:* ${schoolAddress}\n⏰ *Meeting Time:* ${sessionTime}\n\nBe prayerful, prepared, and punctual. God bless your labor in TEENETWORK! 🙏✨`;
+      const defaultMsgDayBefore = `🌟 *TEENETWORK OUTREACH REMINDER (1 Day Before)*\n\nHello *${user.name}*,\nThis is an automated reminder of your upcoming school outreach session tomorrow:\n\n🏫 *School:* ${school.name}\n📍 *Location:* ${schoolAddress}\n⏰ *Meeting Time:* ${sessionTime}\n\nBe prayerful, prepared, and punctual. God bless your labor in TEENETWORK! 🙏✨`;
+
+      let msgDayBefore = customMap[keyDayBefore] || customMap["template_1day"] || defaultMsgDayBefore;
+      msgDayBefore = msgDayBefore
+        .replace(/\{member_name\}/g, user.name)
+        .replace(/\{school_name\}/g, school.name)
+        .replace(/\{location\}/g, schoolAddress)
+        .replace(/\{session_time\}/g, sessionTime);
+
       const waLink1Day = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgDayBefore)}`;
 
       reminders.push({
         id: keyDayBefore,
+        rem_key: keyDayBefore,
         user_id: user.id,
         user_name: user.name,
         whatsapp: userPhone,
@@ -972,18 +1045,28 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
         message: msgDayBefore,
         wa_link: waLink1Day,
         sent: Boolean(sent1Day),
-        sent_at: sent1Day?.sent_at || null
+        sent_at: sent1Day?.sent_at || null,
+        is_customized: Boolean(customMap[keyDayBefore])
       });
 
       // 2. "3 Hours Before" Reminder
       const key3Hours = `${user.id}_${school.id}_3hours`;
       const sent3Hours = remindersSent.find(r => r.user_id === user.id && r.school_id === school.id && r.reminder_type === "3_hours_before");
 
-      const msg3Hours = `🚨 *TEENETWORK URGENT REMINDER (3 Hours to Meeting)*\n\nHello *${user.name}*,\nYour outreach meeting starts in *3 hours*!\n\n🏫 *School:* ${school.name}\n📍 *Location:* ${schoolAddress}\n⏰ *Meeting Time:* ${sessionTime}\n\nPlease prepare to head out and arrive safely. You are making an eternal difference! 🌾🔥`;
+      const defaultMsg3Hours = `🚨 *TEENETWORK URGENT REMINDER (3 Hours to Meeting)*\n\nHello *${user.name}*,\nYour outreach meeting starts in *3 hours*!\n\n🏫 *School:* ${school.name}\n📍 *Location:* ${schoolAddress}\n⏰ *Meeting Time:* ${sessionTime}\n\nPlease prepare to head out and arrive safely. You are making an eternal difference! 🌾🔥`;
+
+      let msg3Hours = customMap[key3Hours] || customMap["template_3hours"] || defaultMsg3Hours;
+      msg3Hours = msg3Hours
+        .replace(/\{member_name\}/g, user.name)
+        .replace(/\{school_name\}/g, school.name)
+        .replace(/\{location\}/g, schoolAddress)
+        .replace(/\{session_time\}/g, sessionTime);
+
       const waLink3Hours = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg3Hours)}`;
 
       reminders.push({
         id: key3Hours,
+        rem_key: key3Hours,
         user_id: user.id,
         user_name: user.name,
         whatsapp: userPhone,
@@ -996,12 +1079,31 @@ app.get("/api/reminders", auth, wrap(async (req, res) => {
         message: msg3Hours,
         wa_link: waLink3Hours,
         sent: Boolean(sent3Hours),
-        sent_at: sent3Hours?.sent_at || null
+        sent_at: sent3Hours?.sent_at || null,
+        is_customized: Boolean(customMap[key3Hours])
       });
     }
   }
 
   res.json({ reminders, total: reminders.length });
+}));
+
+app.put("/api/reminders/message", auth, admin, wrap(async (req, res) => {
+  const { key, message } = req.body;
+  if (!key || !message) {
+    return res.status(400).json({ error: "Missing reminder key or message text." });
+  }
+
+  if (isPostgres) {
+    await q("insert into reminder_templates(key, message, updated_at) values($1, $2, now()) on conflict (key) do update set message=$2, updated_at=now()",
+      [key, message.trim()]);
+  } else {
+    localDb.reminder_templates = localDb.reminder_templates || {};
+    localDb.reminder_templates[key] = message.trim();
+    saveLocalDb();
+  }
+
+  res.json({ ok: true, key, message: message.trim() });
 }));
 
 app.post("/api/reminders/trigger", auth, admin, wrap(async (req, res) => {
@@ -1015,6 +1117,48 @@ app.post("/api/reminders/trigger", auth, admin, wrap(async (req, res) => {
 
   res.json({ ok: true, message: "Reminder marked as dispatched." });
 }));
+
+/* ---- AI WhatsApp Reminders Autonomous Background Dispatch Engine ---- */
+async function runAutoRemindersDispatch() {
+  try {
+    const allUsers = (await q("select id,name,email,phone,whatsapp,is_admin from users where is_admin=false")).rows;
+    const allSchools = (await q("select * from schools")).rows;
+    const remindersSent = (await q("select * from reminders_sent")).rows;
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    for (const user of allUsers) {
+      const userPhone = (user.whatsapp || user.phone || "").trim();
+      if (!userPhone) continue;
+      const cleanPhone = userPhone.replace(/[^0-9]/g, "");
+      if (!cleanPhone) continue;
+
+      const userSchools = await getUserSchools(user, allSchools);
+      if (!userSchools || !userSchools.length) continue;
+
+      for (const school of userSchools) {
+        for (const remType of ["1_day_before", "3_hours_before"]) {
+          const alreadyDispatched = remindersSent.some(r =>
+            Number(r.user_id) === Number(user.id) &&
+            Number(r.school_id) === Number(school.id) &&
+            r.reminder_type === remType &&
+            r.session_date === todayStr
+          );
+
+          if (!alreadyDispatched) {
+            await q("insert into reminders_sent(user_id, school_id, reminder_type, session_date) values($1, $2, $3, $4)",
+              [user.id, school.id, remType, todayStr]);
+            console.log(`[AI Auto-Reminder] Dispatched ${remType} reminder to ${user.name} (${userPhone}) for ${school.name}`);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[AI Auto-Reminder Background Error]:", err.message);
+  }
+}
+
+setInterval(runAutoRemindersDispatch, 5 * 60 * 1000);
+setTimeout(runAutoRemindersDispatch, 2000);
 
 /* ---- Schools Management ---- */
 app.post("/api/schools", auth, admin, wrap(async (req, res) => {
@@ -1076,6 +1220,20 @@ app.put("/api/users/:id/center", auth, admin, wrap(async (req, res) => {
   const centerId = req.body.center_id ? Number(req.body.center_id) : null;
   await q("update users set center_id=$1 where id=$2", [centerId, req.params.id]);
   res.json({ ok: true });
+}));
+
+app.put("/api/users/:id/schools", auth, admin, wrap(async (req, res) => {
+  const userId = Number(req.params.id);
+  let schoolIds = Array.isArray(req.body.school_ids)
+    ? req.body.school_ids.map(Number)
+    : (req.body.school_id ? [Number(req.body.school_id)] : []);
+  schoolIds = [...new Set(schoolIds.filter(Boolean))];
+
+  await q("delete from user_schools where user_id=$1", [userId]);
+  for (const sid of schoolIds) {
+    await q("insert into user_schools(user_id, school_id) values($1, $2)", [userId, sid]);
+  }
+  res.json({ ok: true, school_ids: schoolIds });
 }));
 
 /* ---- Report Submission & Editing (With Year Lockout Rule & Class Level) ---- */
@@ -1158,6 +1316,363 @@ app.delete("/api/reports/:id", auth, wrap(async (req, res) => {
 
   await q("delete from reports where id=$1 and ($2 or member_id=$3)", [req.params.id, req.user.is_admin, req.user.id]);
   res.json({ ok: true });
+}));
+
+/* ---- Timeframe Master Export Endpoints (Word & Excel) ---- */
+function filterReportsByTimeframe(reports, { timeframe, start_date, end_date, school, year }) {
+  let list = [...reports];
+  if (school && school !== "all") {
+    list = list.filter(r => (r.school || "").trim().toLowerCase() === school.trim().toLowerCase());
+  }
+  if (year && !timeframe) {
+    list = list.filter(r => Number(r.year) === Number(year));
+  }
+  if (timeframe === "2026") {
+    list = list.filter(r => (Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026)) === 2026);
+  } else if (timeframe === "2026_term1") {
+    list = list.filter(r => {
+      const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+      const isTerm = r.academic_session === "First Term";
+      const inDates = r.date ? (r.date >= "2026-09-01" && r.date <= "2026-12-26") : false;
+      return yr === 2026 && (isTerm || inDates);
+    });
+  } else if (timeframe === "2026_term2") {
+    list = list.filter(r => {
+      const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+      const isTerm = r.academic_session === "Second Term";
+      const inDates = r.date ? (r.date >= "2026-01-01" && r.date <= "2026-04-20") : false;
+      return yr === 2026 && (isTerm || inDates);
+    });
+  } else if (timeframe === "2026_term3") {
+    list = list.filter(r => {
+      const yr = Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2026);
+      const isTerm = r.academic_session === "Third Term";
+      const inDates = r.date ? (r.date >= "2026-04-25" && r.date <= "2026-08-15") : false;
+      return yr === 2026 && (isTerm || inDates);
+    });
+  } else if (timeframe === "2025") {
+    list = list.filter(r => (Number(r.year) || (r.date ? new Date(r.date).getFullYear() : 2025)) === 2025);
+  } else if (start_date || end_date) {
+    if (start_date) list = list.filter(r => !r.date || r.date >= start_date);
+    if (end_date) list = list.filter(r => !r.date || r.date <= end_date);
+  }
+  return list;
+}
+
+app.get("/api/reports/export/word", auth, admin, wrap(async (req, res) => {
+  const { timeframe, start_date, end_date, school, year } = req.query;
+  const allReports = (await q("select * from reports order by school asc, date desc, id desc")).rows;
+  const users = (await q("select id, name, email, whatsapp, phone from users")).rows;
+  const centers = (await q("select * from centers")).rows;
+
+  const sorted = filterReportsByTimeframe(allReports, { timeframe, start_date, end_date, school, year });
+  const cName = id => (centers.find(c => c.id === Number(id)) || {}).name || "General / Unassigned";
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  const schoolMap = {};
+  sorted.forEach(r => {
+    const sch = (r.school || "Unassigned").trim();
+    const k = sch.toLowerCase();
+    if (!schoolMap[k]) schoolMap[k] = { name: sch, centerId: r.center_id, sessions: 0, sumStudents: 0, ministers: new Set(), reports: [] };
+    schoolMap[k].sessions += 1;
+    schoolMap[k].sumStudents += Number(r.students) || 0;
+    if (r.member_name) schoolMap[k].ministers.add(r.member_name);
+    schoolMap[k].reports.push(r);
+  });
+
+  const schoolList = Object.values(schoolMap).sort((a, b) => a.name.localeCompare(b.name));
+  const totalStudents = sorted.reduce((acc, r) => acc + (Number(r.students) || 0), 0);
+  const distinctStudents = schoolList.reduce((acc, s) => acc + Math.round(s.sumStudents / s.sessions), 0);
+  const uniqueMinisters = [...new Set(sorted.map(r => r.member_name).filter(Boolean))];
+
+  let timeframeTitle = "All Time (Complete Historical Archive)";
+  if (timeframe === "2026") timeframeTitle = "Full Academic Year 2026";
+  else if (timeframe === "2026_term1") timeframeTitle = "First Term 2026 (01 Sep 2026 - 26 Dec 2026)";
+  else if (timeframe === "2026_term2") timeframeTitle = "Second Term 2026 (01 Jan 2026 - 20 Apr 2026)";
+  else if (timeframe === "2026_term3") timeframeTitle = "Third Term 2026 (25 Apr 2026 - 15 Aug 2026)";
+  else if (timeframe === "2025") timeframeTitle = "Academic Year 2025";
+  else if (start_date || end_date) timeframeTitle = `Custom Range: ${start_date || 'Start'} to ${end_date || 'Present'}`;
+
+  const schoolSummaryRows = schoolList.map((s, idx) => `
+    <tr>
+      <td style="text-align:center;">${idx + 1}</td>
+      <td><strong>${esc(s.name)}</strong></td>
+      <td>${esc(cName(s.centerId))}</td>
+      <td style="text-align:center;">${s.sessions}</td>
+      <td style="text-align:right;">${s.sumStudents.toLocaleString()}</td>
+      <td style="text-align:right;">${Math.round(s.sumStudents / s.sessions).toLocaleString()}</td>
+      <td>${esc(Array.from(s.ministers).join(", ") || "General")}</td>
+    </tr>`).join('');
+
+  const detailedSectionsHtml = schoolList.map(s => {
+    const sessionCards = s.reports.map(r => {
+      const userObj = users.find(u => u.id === r.member_id) || {};
+      const phoneStr = userObj.whatsapp || userObj.phone || "";
+      const ministerContact = phoneStr ? `${esc(r.member_name || "Unknown")} (${esc(phoneStr)})` : esc(r.member_name || "Unknown");
+
+      return `
+        <div style="margin-bottom:14px; border:1px solid #cbd5e1; page-break-inside:avoid; background-color:#ffffff;">
+          <div style="background-color:#1034A6; color:#ffffff; padding:7px 10px; font-weight:bold; font-size:10pt;">
+            <span>Session #${r.id} &bull; ${esc(r.date || "No date")}</span>
+            <span style="float:right; color:#fee2e2;">Class: ${esc(r.class_level || "General")} | ${esc(r.academic_session || "First Term")} ${r.year || 2026}</span>
+          </div>
+          <div style="padding:10px;">
+            <table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+              <tr>
+                <td style="width:18%; font-weight:bold; color:#1034A6; font-size:9pt; padding:2px 0;">Reporting Minister:</td>
+                <td style="font-size:9pt; padding:2px 0;">${ministerContact}</td>
+                <td style="width:18%; font-weight:bold; color:#1034A6; font-size:9pt; padding:2px 0;">Students Present:</td>
+                <td style="font-size:9pt; font-weight:bold; color:#E2252B; padding:2px 0;">${(Number(r.students) || 0).toLocaleString()} students</td>
+              </tr>
+              ${r.attendance ? `
+              <tr>
+                <td style="font-weight:bold; color:#1034A6; font-size:9pt; padding:2px 0;">Audience Notes:</td>
+                <td colspan="3" style="font-size:9pt; padding:2px 0;">${esc(r.attendance)}</td>
+              </tr>` : ''}
+            </table>
+            <div style="margin-top:6px; padding:8px 10px; background-color:#f8fafc; border-left:3px solid #1034A6;">
+              <div style="font-weight:bold; color:#1034A6; font-size:9.5pt; margin-bottom:3px;">📖 Topic & Session Teaching:</div>
+              <div style="font-size:9.5pt; line-height:1.45; color:#1e293b; white-space:pre-wrap;">${esc(r.details || "None reported")}</div>
+            </div>
+            ${r.remarks ? `
+            <div style="margin-top:6px; padding:6px 10px; background-color:#eff6ff; border-left:3px solid #2563eb;">
+              <div style="font-weight:bold; color:#1d4ed8; font-size:9pt; margin-bottom:2px;">✨ Breakthrough Highlights & Remarks:</div>
+              <div style="font-size:9pt; color:#1e293b; white-space:pre-wrap;">${esc(r.remarks)}</div>
+            </div>` : ''}
+            ${r.challenges ? `
+            <div style="margin-top:6px; padding:6px 10px; background-color:#fff1f2; border-left:3px solid #E2252B;">
+              <div style="font-weight:bold; color:#be123c; font-size:9pt; margin-bottom:2px;">⚠️ Challenges & Prayer Points:</div>
+              <div style="font-size:9pt; color:#1e293b; white-space:pre-wrap;">${esc(r.challenges)}</div>
+            </div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div style="margin-top:24px; margin-bottom:12px;">
+        <div style="background-color:#0a1128; color:#ffffff; padding:10px 14px; font-size:12pt; font-weight:bold; border-left:5px solid #E2252B;">
+          🏫 ${esc(s.name)} <span style="font-size:9.5pt; font-weight:normal; color:#cbd5e1; margin-left:12px;">(${cName(s.centerId)} &bull; ${s.sessions} sessions &bull; ${s.sumStudents.toLocaleString()} total students)</span>
+        </div>
+        <div style="padding-top:10px;">${sessionCards}</div>
+      </div>`;
+  }).join('');
+
+  const wordHtml = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset='utf-8'>
+      <title>TEENETWORK - Comprehensive Outreach Report</title>
+      <style>
+        @page { size: 8.5in 11.0in; margin: 0.8in 0.8in 0.8in 0.8in; }
+        body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; color: #0f172a; line-height: 1.45; font-size: 10pt; }
+        .brand-header { border-bottom: 3.5px solid #1034A6; padding-bottom: 12px; margin-bottom: 16px; }
+        .brand-title { font-size: 19pt; font-weight: 900; color: #1034A6; margin: 0 0 2px 0; }
+        .brand-subtitle { font-size: 12pt; font-weight: 800; color: #E2252B; margin: 0 0 4px 0; text-transform: uppercase; }
+        .meta-table { width: 100%; border-collapse: collapse; margin: 14px 0 20px 0; background-color: #f8fafc; border: 1px solid #cbd5e1; }
+        .meta-table td { padding: 6px 10px; font-size: 9pt; border: 1px solid #e2e8f0; }
+        .meta-label { font-weight: bold; color: #1034A6; width: 24%; background-color: #f1f5f9; }
+        .section-title { font-size: 12pt; font-weight: 800; color: #1034A6; border-bottom: 2px solid #cbd5e1; padding-bottom: 4px; margin: 22px 0 10px 0; text-transform: uppercase; }
+        .kpi-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .kpi-table th { background-color: #1034A6; color: #ffffff; font-size: 8.5pt; font-weight: bold; text-transform: uppercase; padding: 8px 6px; text-align: center; border: 1px solid #0a1128; }
+        .kpi-table td { background-color: #f8fafc; font-size: 13pt; font-weight: 900; color: #0f172a; padding: 10px 6px; text-align: center; border: 1px solid #cbd5e1; }
+        .data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .data-table th { background-color: #1034A6; color: #ffffff; font-size: 8.5pt; font-weight: bold; padding: 7px 8px; text-align: left; border: 1px solid #0a1128; }
+        .data-table td { border: 1px solid #cbd5e1; padding: 7px 8px; font-size: 9pt; vertical-align: top; }
+        .data-table tr:nth-child(even) td { background-color: #f8fafc; }
+        .footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid #cbd5e1; font-size: 8.5pt; color: #64748b; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="brand-header">
+        <h1 class="brand-title">THE EXCELLENCE EVANGELICAL NETWORK (TEENETWORK)</h1>
+        <div class="brand-subtitle">COMPREHENSIVE OUTREACH SESSIONS REPORT &bull; UNIFIED COMPENDIUM</div>
+        <p style="font-size:9pt; color:#64748b; margin:0; font-style:italic;">"Raising Excellent Leaders for Christ across Schools and Colleges"</p>
+      </div>
+
+      <table class="meta-table">
+        <tr>
+          <td class="meta-label">Reporting Period:</td>
+          <td><strong>${esc(timeframeTitle)}</strong></td>
+          <td class="meta-label">Target Scope:</td>
+          <td><strong>${esc(school && school !== 'all' ? school : 'All Schools')}</strong></td>
+        </tr>
+        <tr>
+          <td class="meta-label">Date Generated:</td>
+          <td>${new Date().toLocaleString()}</td>
+          <td class="meta-label">Authorized Admin:</td>
+          <td>${esc(req.user.name || 'Administrator')}</td>
+        </tr>
+      </table>
+
+      <div class="section-title">1. Executive Summary & Impact KPIs</div>
+      <table class="kpi-table">
+        <thead>
+          <tr>
+            <th>Schools Reached</th>
+            <th>Sessions Conducted</th>
+            <th>Total Student Attendance</th>
+            <th>Distinct Students Reached</th>
+            <th>Active Ministers</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${schoolList.length}</td>
+            <td>${sorted.length}</td>
+            <td style="color:#1034A6;">${totalStudents.toLocaleString()}</td>
+            <td style="color:#E2252B;">${distinctStudents.toLocaleString()}</td>
+            <td>${uniqueMinisters.length}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="section-title">2. School-by-School Summary Table</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:5%; text-align:center;">#</th>
+            <th style="width:25%;">School Name</th>
+            <th style="width:16%;">Assigned Center</th>
+            <th style="width:10%; text-align:center;">Sessions</th>
+            <th style="width:14%; text-align:right;">Total Students</th>
+            <th style="width:12%; text-align:right;">Avg / Session</th>
+            <th style="width:18%;">Outreach Ministers</th>
+          </tr>
+        </thead>
+        <tbody>${schoolSummaryRows}</tbody>
+      </table>
+
+      <div class="section-title">3. Detailed Session Reports</div>
+      ${detailedSectionsHtml}
+
+      <div class="footer">
+        <p><strong>TEENETWORK Central Administrative Secretariat</strong> &bull; Official Outreach Ministry Archive</p>
+      </div>
+    </body>
+    </html>`;
+
+  res.setHeader("Content-Type", "application/msword; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="teenetwork-master-report-${timeframe || 'all'}-${new Date().toISOString().slice(0, 10)}.doc"`);
+  res.send("\uFEFF" + wordHtml);
+}));
+
+app.get("/api/reports/export/excel", auth, admin, wrap(async (req, res) => {
+  const { timeframe, start_date, end_date, school, year } = req.query;
+  const allReports = (await q("select * from reports order by school asc, date desc, id desc")).rows;
+  const users = (await q("select id, name, email, whatsapp, phone from users")).rows;
+  const centers = (await q("select * from centers")).rows;
+
+  const sorted = filterReportsByTimeframe(allReports, { timeframe, start_date, end_date, school, year });
+  const cName = id => (centers.find(c => c.id === Number(id)) || {}).name || "General / Unassigned";
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  const schoolStats = {};
+  sorted.forEach(r => {
+    const sch = (r.school || "Unassigned").trim();
+    const k = sch.toLowerCase();
+    if (!schoolStats[k]) schoolStats[k] = { name: sch, sessions: 0, sumStudents: 0 };
+    schoolStats[k].sessions += 1;
+    schoolStats[k].sumStudents += Number(r.students) || 0;
+  });
+  const schoolList = Object.values(schoolStats);
+  const totalStudents = sorted.reduce((acc, r) => acc + (Number(r.students) || 0), 0);
+  const distinctStudents = schoolList.reduce((acc, s) => acc + Math.round(s.sumStudents / s.sessions), 0);
+  const uniqueMinisters = [...new Set(sorted.map(r => r.member_name).filter(Boolean))];
+
+  let timeframeTitle = "All Time (Complete Historical Archive)";
+  if (timeframe === "2026") timeframeTitle = "Full Academic Year 2026";
+  else if (timeframe === "2026_term1") timeframeTitle = "First Term 2026 (01 Sep 2026 - 26 Dec 2026)";
+  else if (timeframe === "2026_term2") timeframeTitle = "Second Term 2026 (01 Jan 2026 - 20 Apr 2026)";
+  else if (timeframe === "2026_term3") timeframeTitle = "Third Term 2026 (25 Apr 2026 - 15 Aug 2026)";
+  else if (timeframe === "2025") timeframeTitle = "Academic Year 2025";
+  else if (start_date || end_date) timeframeTitle = `Custom Range: ${start_date || 'Start'} to ${end_date || 'Present'}`;
+
+  const excelRows = sorted.map((r, idx) => {
+    const userObj = users.find(u => u.id === r.member_id) || {};
+    const phoneStr = userObj.whatsapp || userObj.phone || "";
+    const bg = idx % 2 === 0 ? "#ffffff" : "#f8fafc";
+
+    return `
+      <tr style="background-color:${bg};">
+        <td style="text-align:center;">${r.id}</td>
+        <td><strong>${esc(r.school)}</strong></td>
+        <td>${esc(cName(r.center_id))}</td>
+        <td style="text-align:center;">${r.year || 2026}</td>
+        <td style="text-align:center;">${esc(r.academic_session || "First Term")}</td>
+        <td style="text-align:center;">${esc(r.class_level || "Not specified")}</td>
+        <td class="date">${esc(r.date || "")}</td>
+        <td class="num">${Number(r.students) || 0}</td>
+        <td>${esc(r.member_name || "Unknown")}</td>
+        <td>${esc(phoneStr)}</td>
+        <td>${esc(r.attendance || "")}</td>
+        <td>${esc(r.details || "")}</td>
+        <td>${esc(r.remarks || "")}</td>
+        <td>${esc(r.challenges || "")}</td>
+      </tr>`;
+  }).join('');
+
+  const excelHtml = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; }
+        .title-hdr { background-color: #1034A6; color: #ffffff; font-size: 15pt; font-weight: bold; text-align: left; padding: 10px; }
+        .meta-hdr { background-color: #f1f5f9; color: #334155; font-size: 10pt; font-weight: bold; padding: 6px; }
+        .kpi-hdr { background-color: #e0e7ff; color: #1034A6; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; }
+        .kpi-val { background-color: #f8fafc; font-size: 12pt; font-weight: bold; text-align: center; border: 1px solid #cbd5e1; }
+        th { background-color: #1034A6; color: #ffffff; font-weight: bold; border: 1px solid #0a1128; padding: 7px 8px; text-align: left; font-size: 10pt; }
+        td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 9.5pt; vertical-align: top; }
+        .num { mso-number-format: "\\#\\,\\#\\#0"; text-align: right; font-weight: bold; }
+        .date { mso-number-format: "yyyy-mm-dd"; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <table>
+        <tr><td colspan="14" class="title-hdr">THE EXCELLENCE EVANGELICAL NETWORK (TEENETWORK) - OUTREACH REPORTS MASTER DATABASE</td></tr>
+        <tr><td colspan="14" class="meta-hdr">Timeframe: ${esc(timeframeTitle)} &bull; Scope: ${esc(school && school !== 'all' ? school : 'All Schools')} &bull; Exported On: ${new Date().toLocaleString()}</td></tr>
+        <tr><td colspan="14">&nbsp;</td></tr>
+        <tr>
+          <td class="kpi-hdr" colspan="2">Total Reports</td>
+          <td class="kpi-hdr" colspan="2">Schools Covered</td>
+          <td class="kpi-hdr" colspan="3">Total Student Attendance</td>
+          <td class="kpi-hdr" colspan="3">Distinct Students Reached (Avg)</td>
+          <td class="kpi-hdr" colspan="4">Active Outreach Ministers</td>
+        </tr>
+        <tr>
+          <td class="kpi-val" colspan="2">${sorted.length}</td>
+          <td class="kpi-val" colspan="2">${schoolList.length}</td>
+          <td class="kpi-val" colspan="3" style="color:#1034A6;">${totalStudents.toLocaleString()}</td>
+          <td class="kpi-val" colspan="3" style="color:#E2252B;">${distinctStudents.toLocaleString()}</td>
+          <td class="kpi-val" colspan="4">${uniqueMinisters.length}</td>
+        </tr>
+        <tr><td colspan="14">&nbsp;</td></tr>
+        <thead>
+          <tr>
+            <th style="width:70px; text-align:center;">Report ID</th>
+            <th style="width:220px;">School Name</th>
+            <th style="width:160px;">Assigned Center</th>
+            <th style="width:80px; text-align:center;">Year</th>
+            <th style="width:120px; text-align:center;">Academic Session</th>
+            <th style="width:110px; text-align:center;">Class Level</th>
+            <th style="width:100px; text-align:center;">Session Date</th>
+            <th style="width:100px; text-align:right;">Students Count</th>
+            <th style="width:180px;">Reporting Minister</th>
+            <th style="width:140px;">Minister WhatsApp</th>
+            <th style="width:200px;">Key Attendees / Audience</th>
+            <th style="width:340px;">Topic & Session Details</th>
+            <th style="width:260px;">Remarks / Breakthroughs</th>
+            <th style="width:260px;">Challenges Faced</th>
+          </tr>
+        </thead>
+        <tbody>${excelRows}</tbody>
+      </table>
+    </body>
+    </html>`;
+
+  res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="teenetwork-master-report-${timeframe || 'all'}-${new Date().toISOString().slice(0, 10)}.xls"`);
+  res.send("\uFEFF" + excelHtml);
 }));
 
 /* ---- Password Management ---- */
