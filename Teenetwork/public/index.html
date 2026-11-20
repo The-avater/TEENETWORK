@@ -114,6 +114,14 @@
               <span>Assigned Schools</span>
             </button>
 
+            <button id="drawerSecretarySwitchBtn" onclick="toggleSecretaryView(); toggleHamburgerMenu(false);" class="hidden w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300 transition flex items-center justify-between">
+              <span class="flex items-center gap-2.5">
+                <span>💼</span>
+                <span id="drawerSecretarySwitchLabel">Secretary Workspace</span>
+              </span>
+              <span class="text-[10px] bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-md font-extrabold">Switch</span>
+            </button>
+
             <button onclick="openProfileModal(); toggleHamburgerMenu(false);" class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-egyptian-50 dark:hover:bg-egyptian-950/40 hover:text-egyptian-700 dark:hover:text-egyptian-300 transition flex items-center gap-2.5">
               <span>👤</span>
               <span>My Profile</span>
@@ -718,6 +726,197 @@
     </div>
   </div>
 
+    <!-- Modal 12: Record / Edit Expense Modal (Secretary Only) -->
+  <div id="recordExpenseModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 animate-fade-in relative">
+      <button onclick="closeRecordExpenseModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      
+      <div class="mb-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📝</span>
+          <h3 id="recordExpenseModalTitle" class="text-lg font-black text-slate-900 dark:text-white">Record New Expense</h3>
+        </div>
+        <p class="text-xs text-slate-500 mt-0.5">
+          Log an expenditure disbursed from your Secretary Current Account. Record the exact purpose and amount.
+        </p>
+      </div>
+
+      <div class="space-y-3.5 mb-5">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="exp_category">
+            Expense Category *
+          </label>
+          <select id="exp_category" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-semibold outline-none focus:ring-1 focus:ring-emerald-600 text-slate-800 dark:text-slate-200">
+            <option value="Outreach Materials & Bibles">Outreach Materials & Bibles</option>
+            <option value="Transport / Logistics">Transport / Logistics</option>
+            <option value="Refreshments & Catering">Refreshments & Catering</option>
+            <option value="Printing & Stationery">Printing & Stationery</option>
+            <option value="Honorarium / Guest Speakers">Honorarium / Guest Speakers</option>
+            <option value="Equipment & Media">Equipment & Media</option>
+            <option value="Venue & Hall Rental">Venue & Hall Rental</option>
+            <option value="Medical & First Aid">Medical & First Aid</option>
+            <option value="Miscellaneous & Contingency">Miscellaneous & Contingency</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="exp_description">
+            What Was The Money Used For? *
+          </label>
+          <textarea id="exp_description" rows="2" placeholder="e.g. Purchased 50 outreach notebooks, pens and tracts for ministry outreach at St. Jude High" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-emerald-600 text-slate-800 dark:text-slate-200"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="exp_amount">
+              Amount Spent (₦) *
+            </label>
+            <input id="exp_amount" type="number" min="0" step="any" placeholder="e.g. 15000" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-bold outline-none focus:ring-1 focus:ring-emerald-600 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="exp_date">
+              Date of Expenditure *
+            </label>
+            <input id="exp_date" type="date" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-emerald-600 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="exp_receipt">
+            Receipt / Proof URL (Optional)
+          </label>
+          <input id="exp_receipt" type="url" placeholder="https://drive.google.com/... or image receipt link" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-emerald-600 text-slate-800 dark:text-slate-200">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="exp_notes">
+            Additional Notes (Optional)
+          </label>
+          <input id="exp_notes" placeholder="e.g. Approved by outreach leader, invoice filed" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-emerald-600 text-slate-800 dark:text-slate-200">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+        <button type="button" onclick="closeRecordExpenseModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+        <button type="button" onclick="submitExpenseForm()" id="submitExpenseBtn" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs rounded-xl shadow-md transition active:scale-95">
+          Save Expense
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 13: Cash Handover from Admin to Secretary -->
+  <div id="adminHandoverModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 animate-fade-in relative">
+      <button onclick="closeAdminHandoverModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      
+      <div class="mb-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">💵</span>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white">Hand Over Cash to Secretary</h3>
+        </div>
+        <p class="text-xs text-slate-500 mt-0.5">
+          This deducts cash from the Administrator's Account and credits the Secretary's Current Account.
+        </p>
+      </div>
+
+      <div class="space-y-3.5 mb-5">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="ho_secretary_id">
+            Recipient Secretary *
+          </label>
+          <select id="ho_secretary_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-semibold outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="ho_amount">
+              Amount to Hand Over (₦) *
+            </label>
+            <input id="ho_amount" type="number" min="0" step="any" placeholder="e.g. 50000" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-bold outline-none focus:ring-1 focus:ring-emerald-600 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="ho_date">
+              Handover Date *
+            </label>
+            <input id="ho_date" type="date" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-emerald-600 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="ho_notes">
+            Purpose / Handover Remarks
+          </label>
+          <textarea id="ho_notes" rows="2" placeholder="e.g. Outreach operations and materials fund for First Term 2026/2027" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200"></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+        <button type="button" onclick="closeAdminHandoverModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+        <button type="button" onclick="submitAdminHandoverForm()" id="submitHandoverBtn" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs rounded-xl shadow-md transition active:scale-95">
+          Confirm Cash Handover
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 14: Add Funds / Capital to Administrator's Account -->
+  <div id="adminDepositModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#111d3d] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-2xl p-6 animate-fade-in relative">
+      <button onclick="closeAdminDepositModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      
+      <div class="mb-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🏦</span>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white">Add Funds to Administrator's Account</h3>
+        </div>
+        <p class="text-xs text-slate-500 mt-0.5">
+          Record cash inflow, grants, donations, or organizational capital into the Administrator's custody.
+        </p>
+      </div>
+
+      <div class="space-y-3.5 mb-5">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="dep_source">
+            Funding Source *
+          </label>
+          <input id="dep_source" placeholder="e.g. Church Grant, Monthly Partnership Inflow, Personal Seed" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-semibold outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="dep_amount">
+              Deposit Amount (₦) *
+            </label>
+            <input id="dep_amount" type="number" min="0" step="any" placeholder="e.g. 100000" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs font-bold outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="dep_date">
+              Deposit Date *
+            </label>
+            <input id="dep_date" type="date" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-300 mb-1" for="dep_notes">
+            Deposit Notes / Reference
+          </label>
+          <textarea id="dep_notes" rows="2" placeholder="e.g. Received via bank transfer from partner foundation" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-xs outline-none focus:ring-1 focus:ring-egyptian-600 text-slate-800 dark:text-slate-200"></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+        <button type="button" onclick="closeAdminDepositModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+        <button type="button" onclick="submitAdminDepositForm()" id="submitDepositBtn" class="px-5 py-2.5 bg-egyptian-700 hover:bg-egyptian-800 text-white font-extrabold text-xs rounded-xl shadow-md transition active:scale-95">
+          Record Inflow
+        </button>
+      </div>
+    </div>
+  </div>
+
   <footer class="border-t border-slate-200 dark:border-[#1e356d] py-6 text-center text-xs text-slate-500 no-print">
     TEENETWORK &copy; 2026. Academic Session Reporting Hub.
   </footer>
@@ -804,6 +1003,31 @@
     let reminderSearchQuery = "";
     let filterReminderStatus = "all"; // "all", "PENDING", "SUCCESSFUL", "FAILED"
     let remindersList = [];
+
+    /* Secretary & Financial Accounts State */
+    let secretaryViewChoice = localStorage.getItem("tn_sec_view_choice") || null; // 'secretary' | 'member' | null
+    let financesData = {
+      summary: {
+        total_admin_deposits: 0,
+        total_handed_over: 0,
+        admin_account_balance: 0,
+        secretary_total_received: 0,
+        secretary_current_balance: 0,
+        secretary_expense_total: 0
+      },
+      deposits: [],
+      allocations: [],
+      expenses: [],
+      secretaries: [],
+      can_edit_expenses: false,
+      can_manage_allocations: false
+    };
+    let secretaryFinancesTab = "expenses"; // "expenses" | "handovers"
+    let adminFinancesTab = "expenses"; // "expenses" | "handovers" | "deposits"
+    let expenseCategoryFilter = "all";
+    let expenseSearchQuery = "";
+    let editingExpenseId = null;
+    let reminderAutoSyncInterval = null;
 
     function sanitizePhoneForWhatsApp(phone) {
       if (!phone) return "";
@@ -1337,19 +1561,26 @@
             name: me.name,
             email: me.email,
             is_admin: me.is_admin,
+            is_secretary: Boolean(me.is_secretary),
             token: me.token || savedAccounts.find(a => a.id === me.id)?.token
           });
 
           if (hamburger) hamburger.classList.remove("hidden");
           if (roleBadge) {
             roleBadge.classList.remove("hidden");
-            roleBadge.textContent = me.is_admin ? "Administrator" : "Member";
+            roleBadge.textContent = me.is_admin ? "Administrator" : (me.is_secretary ? "Secretary" : "Member");
+          }
+          if ($("drawerSecretarySwitchBtn")) {
+            $("drawerSecretarySwitchBtn").classList.toggle("hidden", !me || !me.is_secretary);
+            if ($("drawerSecretarySwitchLabel")) {
+              $("drawerSecretarySwitchLabel").textContent = secretaryViewChoice === "secretary" ? "Member Workspace" : "Secretary Finances";
+            }
           }
 
           if ($("drawerUserName")) $("drawerUserName").textContent = me.name || "";
           if ($("drawerUserEmail")) $("drawerUserEmail").textContent = me.email || "";
           if ($("drawerUserAvatar")) $("drawerUserAvatar").textContent = (me.name || "U")[0].toUpperCase();
-          if ($("drawerUserRoleBadge")) $("drawerUserRoleBadge").textContent = me.is_admin ? "Admin" : "Member";
+          if ($("drawerUserRoleBadge")) $("drawerUserRoleBadge").textContent = me.is_admin ? "Admin" : (me.is_secretary ? "Secretary" : "Member");
           if ($("drawerAssignedSchoolsBtn")) $("drawerAssignedSchoolsBtn").classList.toggle("hidden", !me || !me.is_admin);
 
           try {
@@ -1362,6 +1593,10 @@
             stats = d.stats || {};
             if (me.is_admin) {
               await loadRemindersData();
+              startReminderAutoSync();
+            }
+            if (me.is_admin || me.is_secretary) {
+              await loadFinancesData();
             }
           } catch (e) {
             console.error("Failed to load dashboard data:", e);
@@ -1463,6 +1698,14 @@
 
       if (me.is_admin) {
         a.innerHTML = adminDashboardView();
+      } else if (me.is_secretary) {
+        if (!secretaryViewChoice) {
+          a.innerHTML = secretaryLandingView();
+        } else if (secretaryViewChoice === "secretary") {
+          a.innerHTML = secretaryPortalView();
+        } else {
+          a.innerHTML = memberInteractionView();
+        }
       } else {
         a.innerHTML = memberInteractionView();
       }
@@ -1508,8 +1751,35 @@
       }
 
       // STEP 1: WELCOME TEXT AND ASSIGNED SCHOOLS (CLICKABLE)
+      const secretaryDualBanner = me && me.is_secretary ? `
+        <div class="bg-gradient-to-r from-egyptian-900 to-slate-900 text-white p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow border border-egyptian-600/40 mb-4 animate-fade-in">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-lg font-bold shrink-0">
+              💼
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-black text-white">Dual Role Active:</span>
+                <span class="text-[10px] font-extrabold uppercase px-2 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-black">Appointed Secretary</span>
+              </div>
+              <p class="text-[11px] text-egyptian-100 mt-0.5">You are currently in your Assigned School Outreach Member portal.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 flex-wrap">
+            <button onclick="setSecretaryPortalView('secretary')" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-black text-xs shadow transition flex items-center gap-1.5 active:scale-95">
+              <span>💼 Switch to Secretary Hub</span>
+              <span>&rarr;</span>
+            </button>
+            <button onclick="setSecretaryPortalView(null)" class="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition" title="Choose workspace screen">
+              Change Workspace
+            </button>
+          </div>
+        </div>
+      ` : '';
+
       return `
         <div class="space-y-6">
+          ${secretaryDualBanner}
           <!-- 1. Welcome Text Banner -->
           <div class="bg-gradient-to-r from-egyptian-800 via-egyptian-700 to-egyptian-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-egyptian-500/20">
             <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-white tracking-wider">
@@ -2307,9 +2577,12 @@
             <button onclick="adminTab='reminders'; loadRemindersData().then(render); render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'reminders' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
               🤖 AI WhatsApp Reminders (${remindersList.length})
             </button>
+            <button onclick="adminTab='finances'; loadFinancesData().then(render); render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminTab === 'finances' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
+              💼 Finances & Cash
+            </button>
           </div>
 
-          ${adminTab === 'reports' ? adminReportsHub() : adminTab === 'members' ? adminMembersHub() : adminTab === 'schools' ? adminSchoolsHub() : adminRemindersHub()}
+          ${adminTab === 'reports' ? adminReportsHub() : adminTab === 'members' ? adminMembersHub() : adminTab === 'schools' ? adminSchoolsHub() : adminTab === 'reminders' ? adminRemindersHub() : adminFinancesHub()}
         </div>`;
     }
 
@@ -2562,7 +2835,7 @@
             </div>
             <div class="flex items-center gap-2 flex-wrap shrink-0">
               <button type="button" onclick="runAutoDispatchCheckNow()" class="px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 active:scale-95" title="Run background cron check now to dispatch any due 24h or 3h reminders">
-                <span>⚡ Auto-Dispatch Due Reminders</span>
+                <span>⚡ Send All Due Reminders Now (Instant)</span>
               </button>
               <button type="button" onclick="openWhatsAppGatewayModal()" class="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-1.5" title="Configure WhatsApp Webhook Gateway / Meta Cloud API">
                 <span>⚙️ Gateway</span>
@@ -3149,7 +3422,7 @@
                 ${profiles.map(p => `
                   <tr class="hover:bg-slate-50/50 dark:hover:bg-[#16254f]/40 transition">
                     <td class="px-4 py-3 font-bold text-slate-900 dark:text-white">
-                      ${esc(p.name)} ${p.is_admin ? '<span class="text-[9px] bg-fiery-600 text-white px-1.5 py-0.2 rounded font-black">ADMIN</span>' : ''}
+                      ${esc(p.name)} ${p.is_admin ? '<span class="text-[9px] bg-fiery-600 text-white px-1.5 py-0.2 rounded font-black">ADMIN</span>' : (p.is_secretary ? '<span class="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded font-black">💼 SECRETARY</span>' : '')}
                       <span class="block text-[10px] text-slate-400 font-normal">${esc(p.email)} &bull; 📱 ${esc(p.whatsapp || p.phone || "No Phone")}</span>
                     </td>
 
@@ -3189,6 +3462,15 @@
                           <button onclick="promptResetPassword(${p.id}, '${esc(p.name)}', '${esc(p.phone || '')}')" class="px-2 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-[10px] font-semibold" title="Set a custom password">
                             Custom
                           </button>
+                          ${p.is_secretary ? `
+                            <button onclick="toggleSecretaryRole(${p.id}, false, '${esc(p.name)}')" class="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold text-[11px] shadow-sm transition flex items-center space-x-1" title="Revoke Secretary role">
+                              <span>💼 Revoke Sec</span>
+                            </button>
+                          ` : `
+                            <button onclick="toggleSecretaryRole(${p.id}, true, '${esc(p.name)}')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold text-[11px] shadow-sm transition flex items-center space-x-1" title="Appoint as Organization Secretary">
+                              <span>💼 Make Sec</span>
+                            </button>
+                          `}
                           <button onclick="toggleUserAdminRole(${p.id}, '${esc(p.name)}', true)" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 font-black text-[11px] shadow-sm transition flex items-center space-x-1" title="Grant Administrator privileges">
                             <span>👑 Make Admin</span>
                           </button>
@@ -4661,6 +4943,1000 @@
 
     // Start App
     boot();
+
+    /* ==========================================================================
+       FINANCIAL ACCOUNTS & SECRETARY PORTAL MODULE
+       - Administrator's Account (how much money is left with administrator)
+       - Secretary Account:
+           * Current Account (how much money is with secretary at hand)
+           * Expense Account (what the money was used for)
+       - View-Only audit access for Administrator; Secretary can add/edit/delete
+       ========================================================================== */
+
+    async function loadFinancesData() {
+      try {
+        const res = await api("GET", "/api/finances");
+        if (res && res.ok) {
+          financesData = res;
+        }
+      } catch (err) {
+        console.error("Failed to load financial records:", err);
+      }
+    }
+
+    function setSecretaryPortalView(choice) {
+      secretaryViewChoice = choice;
+      if (choice) {
+        localStorage.setItem("tn_sec_view_choice", choice);
+      } else {
+        localStorage.removeItem("tn_sec_view_choice");
+      }
+      if ($("drawerSecretarySwitchLabel")) {
+        $("drawerSecretarySwitchLabel").textContent = choice === "secretary" ? "Member Workspace" : "Secretary Finances";
+      }
+      render();
+    }
+
+    function toggleSecretaryView() {
+      if (secretaryViewChoice === "secretary") {
+        setSecretaryPortalView("member");
+      } else {
+        setSecretaryPortalView("secretary");
+      }
+    }
+
+    async function toggleSecretaryRole(userId, isSecretary, userName) {
+      const actionText = isSecretary ? "appoint as Secretary" : "revoke Secretary role from";
+      if (!confirm(`Are you sure you want to ${actionText} "${userName}"?`)) return;
+      try {
+        await api("PUT", `/api/users/${userId}/secretary`, { is_secretary: isSecretary });
+        flash(`Successfully updated Secretary role for ${userName}.`);
+        await boot();
+        render();
+      } catch (err) {
+        flash("", err.message || "Failed to update Secretary role");
+      }
+    }
+
+    function startReminderAutoSync() {
+      if (reminderAutoSyncInterval) clearInterval(reminderAutoSyncInterval);
+      reminderAutoSyncInterval = setInterval(async () => {
+        if (me && me.is_admin && adminTab === "reminders") {
+          try {
+            const res = await api("POST", "/api/reminders/auto-dispatch");
+            if (res && res.dispatchedCount > 0) {
+              await loadRemindersData();
+              render();
+              flash(`⚡ [Auto-Engine] ${res.dispatchedCount} due reminder(s) automatically processed and dispatched!`);
+            }
+          } catch (e) {
+            // Background silent check
+          }
+        }
+      }, 10000); // 10 seconds instant interval
+    }
+
+    /* ---- Reusable 3 Cash Sections Cards ---- */
+    function renderThreeCashSections({ isAdmin = false, summary = {}, canEdit = false }) {
+      const adminBalance = summary.admin_account_balance || 0;
+      const secretaryCurrent = summary.secretary_current_balance || 0;
+      const secretaryExpense = summary.secretary_expense_total || 0;
+      const totalHandedOver = summary.total_handed_over || 0;
+      const totalDeposits = summary.total_admin_deposits || 0;
+
+      return `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- 1. Administrator's Account -->
+          <div class="bg-white dark:bg-[#111d3d] p-5 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -mr-8 -mt-8 pointer-events-none"></div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 tracking-wider">
+                  1. Administrator's Account
+                </span>
+                <span class="text-lg">🏦</span>
+              </div>
+              <p class="text-xs font-bold text-slate-500 dark:text-slate-400">Money Left with Administrator</p>
+              <h3 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1">
+                ₦${adminBalance.toLocaleString()}
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-1">
+                Total Inflows: ₦${totalDeposits.toLocaleString()} &bull; Handed Over: ₦${totalHandedOver.toLocaleString()}
+              </p>
+            </div>
+            ${isAdmin ? `
+              <div class="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+                <button type="button" onclick="openAdminDepositModal()" class="flex-1 py-2 px-2.5 bg-egyptian-700 hover:bg-egyptian-800 text-white font-bold text-xs rounded-xl shadow transition text-center">
+                  + Deposit Funds
+                </button>
+                <button type="button" onclick="openAdminHandoverModal()" class="flex-1 py-2 px-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow transition text-center">
+                  💵 Hand Over Cash
+                </button>
+              </div>
+            ` : `
+              <div class="mt-4 pt-3 border-t border-slate-100 dark:border-[#1e356d] flex items-center justify-between text-[11px] text-slate-400">
+                <span>Admin Custody Balance</span>
+                <span class="font-bold text-slate-600 dark:text-slate-300">Managed by Admin</span>
+              </div>
+            `}
+          </div>
+
+          <!-- 2. Secretary Account: Current Account -->
+          <div class="bg-white dark:bg-[#111d3d] p-5 rounded-3xl border border-emerald-300 dark:border-emerald-800/80 shadow-sm flex flex-col justify-between relative overflow-hidden ring-1 ring-emerald-500/20">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full -mr-8 -mt-8 pointer-events-none"></div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 tracking-wider">
+                  2. Secretary Current Account
+                </span>
+                <span class="text-lg">💵</span>
+              </div>
+              <p class="text-xs font-bold text-emerald-700 dark:text-emerald-400">Cash with Secretary at Hand</p>
+              <h3 class="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                ₦${secretaryCurrent.toLocaleString()}
+              </h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Cash Received: ₦${totalHandedOver.toLocaleString()} &minus; Spent: ₦${secretaryExpense.toLocaleString()}
+              </p>
+            </div>
+            ${canEdit ? `
+              <div class="mt-4 pt-3 border-t border-emerald-100 dark:border-emerald-900/50 flex items-center gap-2">
+                <button type="button" onclick="openRecordExpenseModal()" class="w-full py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs rounded-xl shadow transition text-center flex items-center justify-center gap-1.5 active:scale-95">
+                  <span>➕ Record New Expense</span>
+                </button>
+              </div>
+            ` : `
+              <div class="mt-4 pt-3 border-t border-slate-100 dark:border-[#1e356d] flex items-center justify-between text-[11px] text-slate-400">
+                <span>Operating Float</span>
+                <span class="font-bold text-emerald-600 dark:text-emerald-400">At Hand with Secretary</span>
+              </div>
+            `}
+          </div>
+
+          <!-- 3. Secretary Account: Expense Account -->
+          <div class="bg-white dark:bg-[#111d3d] p-5 rounded-3xl border border-slate-200 dark:border-[#1e356d] shadow-sm flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-8 -mt-8 pointer-events-none"></div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 tracking-wider">
+                  3. Secretary Expense Account
+                </span>
+                <span class="text-lg">📊</span>
+              </div>
+              <p class="text-xs font-bold text-slate-500 dark:text-slate-400">Total Money Spent</p>
+              <h3 class="text-2xl sm:text-3xl font-black text-fiery-600 dark:text-fiery-400 mt-1">
+                ₦${secretaryExpense.toLocaleString()}
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-1">
+                Detailed breakdown of what the money was used for
+              </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 dark:border-[#1e356d] flex items-center justify-between text-[11px] text-slate-400">
+              <span>Logged Disbursements</span>
+              <span class="font-bold text-slate-600 dark:text-slate-300">${(financesData.expenses || []).length} Recorded Items</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ---- Secretary Workspace Landing View (Choice between Member & Secretary) ---- */
+    function secretaryLandingView() {
+      const userSchoolNames = (userSchools || []).map(s => s.name).filter(Boolean);
+      const secCurrentBal = financesData.summary?.secretary_current_balance || 0;
+      const secExpenseTot = financesData.summary?.secretary_expense_total || 0;
+
+      return `
+        <div class="max-w-4xl mx-auto space-y-8 py-8 animate-fade-in">
+          <div class="text-center space-y-3">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-egyptian-50 dark:bg-egyptian-950/80 border border-egyptian-200 dark:border-egyptian-800 text-egyptian-800 dark:text-egyptian-300 text-xs font-black uppercase tracking-wider">
+              <span>💼</span> Multi-Role Portal Navigation
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
+              Welcome, ${esc(me.name)}!
+            </h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm max-w-xl mx-auto">
+              You are registered as an <strong>Outreach Member</strong> and appointed as the <strong>Organization Secretary</strong>. Please select which workspace you wish to enter:
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 1. Member Portal Card -->
+            <div onclick="setSecretaryPortalView('member')" class="group bg-white dark:bg-[#111d3d] p-7 rounded-3xl border-2 border-slate-200 dark:border-[#1e356d] hover:border-egyptian-600 dark:hover:border-egyptian-500 shadow-lg hover:shadow-2xl transition cursor-pointer flex flex-col justify-between transform hover:-translate-y-1">
+              <div>
+                <div class="w-14 h-14 rounded-2xl bg-egyptian-50 dark:bg-egyptian-950 text-egyptian-700 dark:text-egyptian-300 flex items-center justify-center text-2xl font-bold mb-5 border border-egyptian-200 dark:border-egyptian-800 group-hover:scale-110 transition">
+                  🏫
+                </div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-egyptian-100 dark:bg-egyptian-950 text-egyptian-800 dark:text-egyptian-300">Outreach Minister</span>
+                </div>
+                <h2 class="text-xl font-black text-slate-900 dark:text-white group-hover:text-egyptian-700 dark:group-hover:text-egyptian-400 transition">
+                  Member Outreach Portal
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  Submit and review weekly outreach session reports for your assigned schools, view coordinator contact details, and record student attendance.
+                </p>
+                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-[#1e356d]">
+                  <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Schools:</span>
+                  ${userSchoolNames.length > 0 ? `
+                    <div class="flex flex-wrap gap-1.5">
+                      ${userSchoolNames.map(name => `<span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-[#0a1128] text-slate-700 dark:text-slate-300 text-[11px] font-bold">🏫 ${esc(name)}</span>`).join('')}
+                    </div>
+                  ` : `
+                    <span class="text-xs text-slate-400 italic">No specific school assigned yet.</span>
+                  `}
+                </div>
+              </div>
+
+              <div class="mt-6 pt-4 flex items-center justify-between">
+                <span class="text-xs font-black text-egyptian-700 dark:text-egyptian-400 group-hover:underline">
+                  Enter Member Portal &rarr;
+                </span>
+                <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#0a1128] flex items-center justify-center text-slate-500 group-hover:bg-egyptian-700 group-hover:text-white transition">
+                  &rarr;
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Secretary Portal Card -->
+            <div onclick="setSecretaryPortalView('secretary')" class="group bg-white dark:bg-[#111d3d] p-7 rounded-3xl border-2 border-slate-200 dark:border-[#1e356d] hover:border-emerald-600 dark:hover:border-emerald-500 shadow-lg hover:shadow-2xl transition cursor-pointer flex flex-col justify-between transform hover:-translate-y-1">
+              <div>
+                <div class="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-2xl font-bold mb-5 border border-emerald-200 dark:border-emerald-800 group-hover:scale-110 transition">
+                  💼
+                </div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">Financial Hub</span>
+                </div>
+                <h2 class="text-xl font-black text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition">
+                  Secretary Financial Hub
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  Manage organization financial accounts, record and edit expenses with details on what money was used for, track Current Account (cash at hand), and audit Administrator handovers.
+                </p>
+                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-[#1e356d] grid grid-cols-2 gap-2 text-xs">
+                  <div class="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900">
+                    <span class="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 block">Cash at Hand</span>
+                    <span class="font-black text-emerald-700 dark:text-emerald-400">₦${secCurrentBal.toLocaleString()}</span>
+                  </div>
+                  <div class="p-2 rounded-xl bg-slate-50 dark:bg-[#0a1128] border border-slate-200 dark:border-[#1e356d]">
+                    <span class="text-[10px] font-bold text-slate-500 block">Total Spent</span>
+                    <span class="font-black text-slate-700 dark:text-slate-300">₦${secExpenseTot.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-6 pt-4 flex items-center justify-between">
+                <span class="text-xs font-black text-emerald-700 dark:text-emerald-400 group-hover:underline">
+                  Enter Secretary Financial Hub &rarr;
+                </span>
+                <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#0a1128] flex items-center justify-center text-slate-500 group-hover:bg-emerald-700 group-hover:text-white transition">
+                  &rarr;
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-center text-xs text-slate-400">
+            💡 You can toggle between Member and Secretary portals anytime from the top bar or side menu.
+          </div>
+        </div>
+      `;
+    }
+
+    /* ---- Secretary Financial Hub View ---- */
+    function secretaryPortalView() {
+      const summary = financesData.summary || {};
+      let filteredExpenses = [...(financesData.expenses || [])];
+
+      if (expenseCategoryFilter !== "all") {
+        filteredExpenses = filteredExpenses.filter(e => e.category === expenseCategoryFilter);
+      }
+
+      if (expenseSearchQuery) {
+        const q = expenseSearchQuery.toLowerCase();
+        filteredExpenses = filteredExpenses.filter(e =>
+          (e.description || "").toLowerCase().includes(q) ||
+          (e.category || "").toLowerCase().includes(q) ||
+          (e.notes || "").toLowerCase().includes(q) ||
+          (e.secretary_name || "").toLowerCase().includes(q)
+        );
+      }
+
+      const categories = [
+        "all",
+        "Outreach Materials & Bibles",
+        "Transport / Logistics",
+        "Refreshments & Catering",
+        "Printing & Stationery",
+        "Honorarium / Guest Speakers",
+        "Equipment & Media",
+        "Venue & Hall Rental",
+        "Medical & First Aid",
+        "Miscellaneous & Contingency"
+      ];
+
+      return `
+        <div class="space-y-6 animate-fade-in">
+          <!-- Secretary Banner with Switcher -->
+          <div class="bg-gradient-to-r from-egyptian-900 via-egyptian-800 to-slate-900 text-white p-5 sm:p-6 rounded-3xl shadow-xl border border-egyptian-600/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span class="text-xl">💼</span>
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 tracking-wider">Financial Hub</span>
+                <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/10 text-egyptian-200 border border-white/20 tracking-wider">Secretary Authorized</span>
+              </div>
+              <h2 class="text-2xl sm:text-3xl font-black">Organization Financial Portal</h2>
+              <p class="text-xs sm:text-sm text-egyptian-100 mt-1 max-w-xl">
+                Track and disburse funds, manage the <strong>Current Account</strong> (cash at hand), record detailed expenditures, and review cash handovers received from the Administrator.
+              </p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap shrink-0">
+              <button type="button" onclick="openRecordExpenseModal()" class="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 active:scale-95">
+                <span>➕ Record New Expense</span>
+              </button>
+              <button type="button" onclick="setSecretaryPortalView('member')" class="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-1.5" title="Switch to your assigned school outreach portal">
+                <span>🏫 Member Portal &rarr;</span>
+              </button>
+              <button type="button" onclick="setSecretaryPortalView(null)" class="px-3 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition" title="Back to workspace selection">
+                🔄 Switch
+              </button>
+            </div>
+          </div>
+
+          <!-- The 3 Cash Sections -->
+          ${renderThreeCashSections({ isAdmin: false, summary: summary, canEdit: true })}
+
+          <!-- Sub Tabs: Expenses vs Handovers -->
+          <div class="border-b border-slate-200 dark:border-[#1e356d] flex space-x-2">
+            <button onclick="secretaryFinancesTab='expenses'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${secretaryFinancesTab === 'expenses' ? 'border-emerald-600 text-emerald-700 dark:border-emerald-400 dark:text-emerald-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
+              📝 Expense Account Records (${(financesData.expenses || []).length})
+            </button>
+            <button onclick="secretaryFinancesTab='handovers'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${secretaryFinancesTab === 'handovers' ? 'border-emerald-600 text-emerald-700 dark:border-emerald-400 dark:text-emerald-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
+              🤝 Cash Handover History (${(financesData.allocations || []).length})
+            </button>
+          </div>
+
+          ${secretaryFinancesTab === 'expenses' ? `
+            <!-- Expenses Management Section -->
+            <div class="bg-white dark:bg-[#111d3d] rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-slate-200 dark:border-[#1e356d] flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                  <h3 class="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Expense Account Log</span>
+                    <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">Secretary Editor Access</span>
+                  </h3>
+                  <p class="text-[11px] text-slate-500">Every expenditure recorded here is deducted from your Current Account cash at hand.</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <input type="text" value="${esc(expenseSearchQuery)}" oninput="expenseSearchQuery = this.value; render();" placeholder="Search expenses or purpose..." class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-emerald-600 w-48">
+                  <select onchange="expenseCategoryFilter = this.value; render();" class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-800 dark:text-slate-200 font-semibold outline-none focus:ring-1 focus:ring-emerald-600">
+                    ${categories.map(c => `<option value="${c}" ${expenseCategoryFilter === c ? 'selected' : ''}>${c === 'all' ? 'All Categories' : c}</option>`).join('')}
+                  </select>
+                  <button type="button" onclick="openRecordExpenseModal()" class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs rounded-xl shadow transition">
+                    + New Expense
+                  </button>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 dark:bg-[#0a1128] text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-[#1e356d]">
+                    <tr>
+                      <th class="px-4 py-3">Date</th>
+                      <th class="px-4 py-3">Category</th>
+                      <th class="px-4 py-3">What The Money Was Used For</th>
+                      <th class="px-4 py-3 text-right">Amount (₦)</th>
+                      <th class="px-4 py-3">Receipt / Proof</th>
+                      <th class="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-[#1e356d]/60">
+                    ${filteredExpenses.length === 0 ? `
+                      <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                          No expenses found matching the criteria. Click <strong>"+ Record New Expense"</strong> to log an expenditure.
+                        </td>
+                      </tr>
+                    ` : filteredExpenses.map(e => `
+                      <tr class="hover:bg-slate-50/50 dark:hover:bg-[#16254f]/40 transition">
+                        <td class="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          ${e.date ? e.date.split("T")[0] : 'N/A'}
+                        </td>
+                        <td class="px-4 py-3">
+                          <span class="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#0a1128] text-slate-700 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-[#1e356d]">
+                            ${esc(e.category)}
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 font-medium text-slate-900 dark:text-white max-w-md">
+                          <div class="font-bold text-slate-900 dark:text-white leading-snug">${esc(e.description)}</div>
+                          ${e.notes ? `<div class="text-[10px] text-slate-400 mt-0.5">Notes: ${esc(e.notes)}</div>` : ''}
+                          <div class="text-[9px] text-slate-400 mt-0.5">Recorded by: ${esc(e.secretary_name || "Secretary")}</div>
+                        </td>
+                        <td class="px-4 py-3 text-right font-black text-fiery-600 dark:text-fiery-400 whitespace-nowrap text-sm">
+                          ₦${(parseFloat(e.amount) || 0).toLocaleString()}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          ${e.receipt_url ? `
+                            <a href="${esc(e.receipt_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 text-[11px] font-bold hover:underline">
+                              <span>📎 View Receipt</span>
+                            </a>
+                          ` : '<span class="text-[11px] text-slate-400 italic">No receipt attached</span>'}
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                          <div class="flex items-center justify-end space-x-1.5">
+                            <button onclick="openRecordExpenseModal(${e.id})" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#16254f] dark:hover:bg-[#1e356d] text-slate-700 dark:text-slate-200 font-bold text-[11px] transition" title="Edit expense">
+                              ✏️ Edit
+                            </button>
+                            <button onclick="deleteExpenseItem(${e.id})" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 font-bold text-[11px] transition" title="Delete expense">
+                              🗑️ Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ` : `
+            <!-- Handover History Section -->
+            <div class="bg-white dark:bg-[#111d3d] rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-slate-200 dark:border-[#1e356d]">
+                <h3 class="font-black text-sm text-slate-900 dark:text-white">Cash Handover History</h3>
+                <p class="text-[11px] text-slate-500">Record of all operating funds transferred from the Administrator to your custody.</p>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 dark:bg-[#0a1128] text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-[#1e356d]">
+                    <tr>
+                      <th class="px-4 py-3">Date</th>
+                      <th class="px-4 py-3">Handed Over By</th>
+                      <th class="px-4 py-3">Received By</th>
+                      <th class="px-4 py-3">Purpose / Notes</th>
+                      <th class="px-4 py-3 text-right">Amount (₦)</th>
+                      <th class="px-4 py-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-[#1e356d]/60">
+                    ${(financesData.allocations || []).length === 0 ? `
+                      <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                          No cash handovers recorded yet. The Administrator hands over operating cash to your Current Account.
+                        </td>
+                      </tr>
+                    ` : (financesData.allocations || []).map(a => `
+                      <tr class="hover:bg-slate-50/50 dark:hover:bg-[#16254f]/40 transition">
+                        <td class="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          ${a.date ? a.date.split("T")[0] : 'N/A'}
+                        </td>
+                        <td class="px-4 py-3 font-bold text-slate-900 dark:text-white">
+                          👑 ${esc(a.admin_name || "Administrator")}
+                        </td>
+                        <td class="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400">
+                          💼 ${esc(a.secretary_name || "Secretary")}
+                        </td>
+                        <td class="px-4 py-3 text-slate-600 dark:text-slate-300">
+                          ${esc(a.notes || "Operating funds allocation")}
+                        </td>
+                        <td class="px-4 py-3 text-right font-black text-emerald-700 dark:text-emerald-400 text-sm whitespace-nowrap">
+                          ₦${(parseFloat(a.amount) || 0).toLocaleString()}
+                        </td>
+                        <td class="px-4 py-3 text-center whitespace-nowrap">
+                          <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-black uppercase">
+                            ${esc(a.status || "CONFIRMED")}
+                          </span>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    /* ---- Administrator Financial Accounts Hub View ---- */
+    function adminFinancesHub() {
+      const summary = financesData.summary || {};
+      let filteredExpenses = [...(financesData.expenses || [])];
+
+      if (expenseCategoryFilter !== "all") {
+        filteredExpenses = filteredExpenses.filter(e => e.category === expenseCategoryFilter);
+      }
+
+      if (expenseSearchQuery) {
+        const q = expenseSearchQuery.toLowerCase();
+        filteredExpenses = filteredExpenses.filter(e =>
+          (e.description || "").toLowerCase().includes(q) ||
+          (e.category || "").toLowerCase().includes(q) ||
+          (e.notes || "").toLowerCase().includes(q) ||
+          (e.secretary_name || "").toLowerCase().includes(q)
+        );
+      }
+
+      const categories = [
+        "all",
+        "Outreach Materials & Bibles",
+        "Transport / Logistics",
+        "Refreshments & Catering",
+        "Printing & Stationery",
+        "Honorarium / Guest Speakers",
+        "Equipment & Media",
+        "Venue & Hall Rental",
+        "Medical & First Aid",
+        "Miscellaneous & Contingency"
+      ];
+
+      return `
+        <div class="space-y-6 animate-fade-in">
+          <!-- Admin Finances Banner -->
+          <div class="bg-gradient-to-r from-egyptian-950/90 via-egyptian-900 to-slate-900 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-egyptian-500/30">
+            <div>
+              <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span class="text-xl">💼</span>
+                <span class="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-egyptian-500 text-white tracking-wider">Treasury & Accounts</span>
+                <span class="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 tracking-wider">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  Admin Cash Custody
+                </span>
+              </div>
+              <h2 class="text-2xl font-black">Organization Financial Accounts</h2>
+              <p class="text-xs text-egyptian-100 max-w-xl mt-1 leading-relaxed">
+                Manage organizational capital, hand over cash to the appointed Secretary, and audit operational disbursements in view-only mode.
+              </p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap shrink-0">
+              <button type="button" onclick="openAdminDepositModal()" class="px-4 py-2.5 bg-egyptian-600 hover:bg-egyptian-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 active:scale-95">
+                <span>🏦 Add Inflow / Capital</span>
+              </button>
+              <button type="button" onclick="openAdminHandoverModal()" class="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 active:scale-95">
+                <span>💵 Hand Over Cash to Secretary</span>
+              </button>
+              <button type="button" onclick="loadFinancesData().then(render)" class="px-3 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-1.5">
+                <span>🔄 Sync</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- The 3 Cash Sections -->
+          ${renderThreeCashSections({ isAdmin: true, summary: summary, canEdit: false })}
+
+          <!-- Sub Tabs: Expenses (View-Only Audit), Cash Handover Log, Capital Inflows -->
+          <div class="border-b border-slate-200 dark:border-[#1e356d] flex space-x-2">
+            <button onclick="adminFinancesTab='expenses'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminFinancesTab === 'expenses' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
+              📝 Secretary Expenses (View-Only Audit) (${(financesData.expenses || []).length})
+            </button>
+            <button onclick="adminFinancesTab='handovers'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminFinancesTab === 'handovers' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
+              🤝 Cash Handover Log (${(financesData.allocations || []).length})
+            </button>
+            <button onclick="adminFinancesTab='deposits'; render();" class="px-4 py-2.5 font-bold text-xs border-b-2 transition ${adminFinancesTab === 'deposits' ? 'border-egyptian-700 text-egyptian-700 dark:border-egyptian-400 dark:text-egyptian-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">
+              🏦 Admin Capital Deposits (${(financesData.deposits || []).length})
+            </button>
+          </div>
+
+          ${adminFinancesTab === 'expenses' ? `
+            <!-- View-Only Audit of Secretary Expenses -->
+            <div class="bg-white dark:bg-[#111d3d] rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm overflow-hidden space-y-3 p-4">
+              <!-- Mandatory Governance Notice: View Only for Admin -->
+              <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0a1128] border border-slate-200 dark:border-[#1e356d] text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">🔒</span>
+                  <div>
+                    <span class="font-bold text-slate-900 dark:text-white">Administrator Audit View (Read-Only)</span>
+                    <p class="text-[11px] text-slate-500 mt-0.5">As the Administrator, you have view-only access to audit expenses. Expenditures can only be recorded, edited, or deleted by the appointed Secretary.</p>
+                  </div>
+                </div>
+                <div class="shrink-0">
+                  <span class="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 uppercase">
+                    Audited & Protected
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
+                <div>
+                  <h3 class="font-black text-sm text-slate-900 dark:text-white">Secretary Expenditure Ledger</h3>
+                  <p class="text-[11px] text-slate-500">Record of all operational expenses paid from the Secretary Current Account.</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <input type="text" value="${esc(expenseSearchQuery)}" oninput="expenseSearchQuery = this.value; render();" placeholder="Search expenses or purpose..." class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-egyptian-600 w-48">
+                  <select onchange="expenseCategoryFilter = this.value; render();" class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-[#1e356d] bg-white dark:bg-[#0a1128] text-slate-800 dark:text-slate-200 font-semibold outline-none focus:ring-1 focus:ring-egyptian-600">
+                    ${categories.map(c => `<option value="${c}" ${expenseCategoryFilter === c ? 'selected' : ''}>${c === 'all' ? 'All Categories' : c}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 dark:bg-[#0a1128] text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-[#1e356d]">
+                    <tr>
+                      <th class="px-4 py-3">Date</th>
+                      <th class="px-4 py-3">Category</th>
+                      <th class="px-4 py-3">What The Money Was Used For</th>
+                      <th class="px-4 py-3 text-right">Amount (₦)</th>
+                      <th class="px-4 py-3">Receipt / Proof</th>
+                      <th class="px-4 py-3 text-center">Audit Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-[#1e356d]/60">
+                    ${filteredExpenses.length === 0 ? `
+                      <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                          No expense records found.
+                        </td>
+                      </tr>
+                    ` : filteredExpenses.map(e => `
+                      <tr class="hover:bg-slate-50/50 dark:hover:bg-[#16254f]/40 transition">
+                        <td class="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          ${e.date ? e.date.split("T")[0] : 'N/A'}
+                        </td>
+                        <td class="px-4 py-3">
+                          <span class="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#0a1128] text-slate-700 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-[#1e356d]">
+                            ${esc(e.category)}
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 font-medium text-slate-900 dark:text-white max-w-md">
+                          <div class="font-bold text-slate-900 dark:text-white leading-snug">${esc(e.description)}</div>
+                          ${e.notes ? `<div class="text-[10px] text-slate-400 mt-0.5">Notes: ${esc(e.notes)}</div>` : ''}
+                          <div class="text-[9px] text-slate-400 mt-0.5">Logged by: ${esc(e.secretary_name || "Secretary")}</div>
+                        </td>
+                        <td class="px-4 py-3 text-right font-black text-fiery-600 dark:text-fiery-400 whitespace-nowrap text-sm">
+                          ₦${(parseFloat(e.amount) || 0).toLocaleString()}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          ${e.receipt_url ? `
+                            <a href="${esc(e.receipt_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 text-[11px] font-bold hover:underline">
+                              <span>📎 View Receipt</span>
+                            </a>
+                          ` : '<span class="text-[11px] text-slate-400 italic">No receipt</span>'}
+                        </td>
+                        <td class="px-4 py-3 text-center whitespace-nowrap">
+                          <span class="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#0a1128] text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                            🔒 Read-Only
+                          </span>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ` : adminFinancesTab === 'handovers' ? `
+            <!-- Handover History Section -->
+            <div class="bg-white dark:bg-[#111d3d] rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-slate-200 dark:border-[#1e356d] flex items-center justify-between">
+                <div>
+                  <h3 class="font-black text-sm text-slate-900 dark:text-white">Cash Handover Log (Disbursements to Secretary)</h3>
+                  <p class="text-[11px] text-slate-500">Every handover deducts from Administrator's Account and credits the Secretary Current Account.</p>
+                </div>
+                <button type="button" onclick="openAdminHandoverModal()" class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs rounded-xl shadow transition">
+                  + New Cash Handover
+                </button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 dark:bg-[#0a1128] text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-[#1e356d]">
+                    <tr>
+                      <th class="px-4 py-3">Date</th>
+                      <th class="px-4 py-3">Handed Over By</th>
+                      <th class="px-4 py-3">Received By</th>
+                      <th class="px-4 py-3">Purpose / Notes</th>
+                      <th class="px-4 py-3 text-right">Amount (₦)</th>
+                      <th class="px-4 py-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-[#1e356d]/60">
+                    ${(financesData.allocations || []).length === 0 ? `
+                      <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                          No cash handovers recorded yet. Click <strong>"Hand Over Cash to Secretary"</strong> to disburse operating funds.
+                        </td>
+                      </tr>
+                    ` : (financesData.allocations || []).map(a => `
+                      <tr class="hover:bg-slate-50/50 dark:hover:bg-[#16254f]/40 transition">
+                        <td class="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          ${a.date ? a.date.split("T")[0] : 'N/A'}
+                        </td>
+                        <td class="px-4 py-3 font-bold text-slate-900 dark:text-white">
+                          👑 ${esc(a.admin_name || "Administrator")}
+                        </td>
+                        <td class="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400">
+                          💼 ${esc(a.secretary_name || "Secretary")}
+                        </td>
+                        <td class="px-4 py-3 text-slate-600 dark:text-slate-300">
+                          ${esc(a.notes || "Operating funds allocation")}
+                        </td>
+                        <td class="px-4 py-3 text-right font-black text-emerald-700 dark:text-emerald-400 text-sm whitespace-nowrap">
+                          ₦${(parseFloat(a.amount) || 0).toLocaleString()}
+                        </td>
+                        <td class="px-4 py-3 text-center whitespace-nowrap">
+                          <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-black uppercase">
+                            ${esc(a.status || "CONFIRMED")}
+                          </span>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ` : `
+            <!-- Admin Capital Deposits Section -->
+            <div class="bg-white dark:bg-[#111d3d] rounded-2xl border border-slate-200 dark:border-[#1e356d] shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-slate-200 dark:border-[#1e356d] flex items-center justify-between">
+                <div>
+                  <h3 class="font-black text-sm text-slate-900 dark:text-white">Admin Capital Deposits & Inflows</h3>
+                  <p class="text-[11px] text-slate-500">Track all organization capital, grants, and partner inflows received into Administrator custody.</p>
+                </div>
+                <button type="button" onclick="openAdminDepositModal()" class="px-3.5 py-1.5 bg-egyptian-700 hover:bg-egyptian-800 text-white font-extrabold text-xs rounded-xl shadow transition">
+                  + Add Capital Deposit
+                </button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 dark:bg-[#0a1128] text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-[#1e356d]">
+                    <tr>
+                      <th class="px-4 py-3">Date</th>
+                      <th class="px-4 py-3">Funding Source</th>
+                      <th class="px-4 py-3">Notes / Reference</th>
+                      <th class="px-4 py-3 text-right">Deposit Amount (₦)</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-[#1e356d]/60">
+                    ${(financesData.deposits || []).length === 0 ? `
+                      <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-slate-400">
+                          No deposits recorded yet. Click <strong>"+ Add Capital Deposit"</strong> to record cash reserves.
+                        </td>
+                      </tr>
+                    ` : (financesData.deposits || []).map(d => `
+                      <tr class="hover:bg-slate-50/50 dark:hover:bg-[#16254f]/40 transition">
+                        <td class="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          ${d.date ? d.date.split("T")[0] : 'N/A'}
+                        </td>
+                        <td class="px-4 py-3 font-bold text-slate-900 dark:text-white">
+                          🏦 ${esc(d.source || "General Inflow")}
+                        </td>
+                        <td class="px-4 py-3 text-slate-600 dark:text-slate-300">
+                          ${esc(d.notes || "Inflow")}
+                        </td>
+                        <td class="px-4 py-3 text-right font-black text-egyptian-700 dark:text-egyptian-300 text-sm whitespace-nowrap">
+                          ₦${(parseFloat(d.amount) || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    /* ---- Modal 12 Controls (Record / Edit Expense) ---- */
+    function openRecordExpenseModal(expId = null) {
+      editingExpenseId = expId;
+      const modal = $("recordExpenseModal");
+      if (!modal) return;
+
+      const titleEl = $("recordExpenseModalTitle");
+      const catEl = $("exp_category");
+      const descEl = $("exp_description");
+      const amtEl = $("exp_amount");
+      const dateEl = $("exp_date");
+      const receiptEl = $("exp_receipt");
+      const notesEl = $("exp_notes");
+      const submitBtn = $("submitExpenseBtn");
+
+      if (expId) {
+        const exp = (financesData.expenses || []).find(e => e.id === expId);
+        if (!exp) return flash("", "Expense record not found.");
+        if (titleEl) titleEl.textContent = "Edit Expense Record";
+        if (submitBtn) submitBtn.textContent = "Update Expense";
+        if (catEl) catEl.value = exp.category || "Miscellaneous & Contingency";
+        if (descEl) descEl.value = exp.description || "";
+        if (amtEl) amtEl.value = exp.amount || "";
+        if (dateEl) dateEl.value = exp.date ? exp.date.split("T")[0] : new Date().toISOString().split("T")[0];
+        if (receiptEl) receiptEl.value = exp.receipt_url || "";
+        if (notesEl) notesEl.value = exp.notes || "";
+      } else {
+        if (titleEl) titleEl.textContent = "Record New Expense";
+        if (submitBtn) submitBtn.textContent = "Save Expense";
+        if (catEl) catEl.value = "Outreach Materials & Bibles";
+        if (descEl) descEl.value = "";
+        if (amtEl) amtEl.value = "";
+        if (dateEl) dateEl.value = new Date().toISOString().split("T")[0];
+        if (receiptEl) receiptEl.value = "";
+        if (notesEl) notesEl.value = "";
+      }
+
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeRecordExpenseModal() {
+      const modal = $("recordExpenseModal");
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      editingExpenseId = null;
+    }
+
+    async function submitExpenseForm() {
+      const cat = $("exp_category")?.value?.trim() || "Miscellaneous & Contingency";
+      const desc = $("exp_description")?.value?.trim() || "";
+      const amt = parseFloat($("exp_amount")?.value);
+      const date = $("exp_date")?.value || new Date().toISOString().split("T")[0];
+      const receipt = $("exp_receipt")?.value?.trim() || "";
+      const notes = $("exp_notes")?.value?.trim() || "";
+
+      if (!desc) return flash("", "Please describe what the money was used for.");
+      if (isNaN(amt) || amt <= 0) return flash("", "Please enter a valid expense amount greater than 0.");
+
+      try {
+        const btn = $("submitExpenseBtn");
+        if (btn) btn.disabled = true;
+
+        if (editingExpenseId) {
+          await api("PUT", `/api/finances/expenses/${editingExpenseId}`, {
+            category: cat,
+            description: desc,
+            amount: amt,
+            date: date,
+            receipt_url: receipt,
+            notes: notes
+          });
+          flash("Expense updated successfully!");
+        } else {
+          await api("POST", "/api/finances/expenses", {
+            category: cat,
+            description: desc,
+            amount: amt,
+            date: date,
+            receipt_url: receipt,
+            notes: notes
+          });
+          flash("Expense logged successfully!");
+        }
+
+        closeRecordExpenseModal();
+        await loadFinancesData();
+        render();
+      } catch (err) {
+        flash("", err.message || "Failed to save expense");
+      } finally {
+        const btn = $("submitExpenseBtn");
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function deleteExpenseItem(expId) {
+      if (!confirm("Are you sure you want to delete this expense record? This will adjust your Current Account cash at hand.")) return;
+      try {
+        await api("DELETE", `/api/finances/expenses/${expId}`);
+        flash("Expense deleted successfully.");
+        await loadFinancesData();
+        render();
+      } catch (err) {
+        flash("", err.message || "Failed to delete expense");
+      }
+    }
+
+    /* ---- Modal 13 Controls (Admin Cash Handover) ---- */
+    function openAdminHandoverModal() {
+      const modal = $("adminHandoverModal");
+      if (!modal) return;
+
+      const secSelect = $("ho_secretary_id");
+      if (secSelect) {
+        const secs = financesData.secretaries || profiles.filter(p => p.is_secretary) || [];
+        if (secs.length > 0) {
+          secSelect.innerHTML = secs.map(s => `<option value="${s.id}">💼 ${esc(s.name)} (${esc(s.email)})</option>`).join("");
+        } else {
+          secSelect.innerHTML = `<option value="">-- Appointed Secretary (Default) --</option>`;
+        }
+      }
+
+      if ($("ho_amount")) $("ho_amount").value = "";
+      if ($("ho_date")) $("ho_date").value = new Date().toISOString().split("T")[0];
+      if ($("ho_notes")) $("ho_notes").value = "";
+
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeAdminHandoverModal() {
+      const modal = $("adminHandoverModal");
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function submitAdminHandoverForm() {
+      const secId = $("ho_secretary_id")?.value;
+      const amt = parseFloat($("ho_amount")?.value);
+      const date = $("ho_date")?.value || new Date().toISOString().split("T")[0];
+      const notes = $("ho_notes")?.value?.trim() || "";
+
+      if (isNaN(amt) || amt <= 0) return flash("", "Please enter a valid handover amount.");
+
+      try {
+        const btn = $("submitHandoverBtn");
+        if (btn) btn.disabled = true;
+
+        const res = await api("POST", "/api/finances/handover", {
+          secretary_id: secId ? Number(secId) : null,
+          amount: amt,
+          date: date,
+          notes: notes
+        });
+
+        flash(`Successfully handed over ₦${amt.toLocaleString()} to ${res.secretary_name || "Secretary"}.`);
+        closeAdminHandoverModal();
+        await loadFinancesData();
+        render();
+      } catch (err) {
+        flash("", err.message || "Failed to process handover");
+      } finally {
+        const btn = $("submitHandoverBtn");
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    /* ---- Modal 14 Controls (Admin Capital Deposit) ---- */
+    function openAdminDepositModal() {
+      const modal = $("adminDepositModal");
+      if (!modal) return;
+
+      if ($("dep_source")) $("dep_source").value = "Grant / Partner Contribution";
+      if ($("dep_amount")) $("dep_amount").value = "";
+      if ($("dep_date")) $("dep_date").value = new Date().toISOString().split("T")[0];
+      if ($("dep_notes")) $("dep_notes").value = "";
+
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeAdminDepositModal() {
+      const modal = $("adminDepositModal");
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function submitAdminDepositForm() {
+      const src = $("dep_source")?.value?.trim() || "Grant / Donation";
+      const amt = parseFloat($("dep_amount")?.value);
+      const date = $("dep_date")?.value || new Date().toISOString().split("T")[0];
+      const notes = $("dep_notes")?.value?.trim() || "";
+
+      if (isNaN(amt) || amt <= 0) return flash("", "Please enter a valid deposit amount.");
+
+      try {
+        const btn = $("submitDepositBtn");
+        if (btn) btn.disabled = true;
+
+        await api("POST", "/api/finances/admin-deposit", {
+          source: src,
+          amount: amt,
+          date: date,
+          notes: notes
+        });
+
+        flash(`Successfully added ₦${amt.toLocaleString()} to Administrator's Account.`);
+        closeAdminDepositModal();
+        await loadFinancesData();
+        render();
+      } catch (err) {
+        flash("", err.message || "Failed to record deposit");
+      } finally {
+        const btn = $("submitDepositBtn");
+        if (btn) btn.disabled = false;
+      }
+    }
   </script>
 </body>
 </html>

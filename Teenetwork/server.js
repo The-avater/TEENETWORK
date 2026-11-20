@@ -199,8 +199,22 @@ if (isPostgres) {
     try {
       localDb = JSON.parse(fs.readFileSync(localDbFile, "utf8"));
       if (!localDb.schools) localDb.schools = [...defaultSchools];
+      if (!localDb.admin_fund_deposits) localDb.admin_fund_deposits = [];
+      if (!localDb.financial_fund_allocations) localDb.financial_fund_allocations = [];
+      if (!localDb.financial_expenses) localDb.financial_expenses = [];
     } catch {
-      localDb = { centers: [], schools: [...defaultSchools], users: [], reports: [], password_resets: [], user_centers: [], user_schools: [] };
+      localDb = {
+        centers: [],
+        schools: [...defaultSchools],
+        users: [],
+        reports: [],
+        password_resets: [],
+        user_centers: [],
+        user_schools: [],
+        admin_fund_deposits: [],
+        financial_fund_allocations: [],
+        financial_expenses: []
+      };
     }
   } else {
     localDb = {
@@ -225,7 +239,10 @@ if (isPostgres) {
       reports: [],
       password_resets: [],
       user_centers: [],
-      user_schools: []
+      user_schools: [],
+      admin_fund_deposits: [],
+      financial_fund_allocations: [],
+      financial_expenses: []
     };
     saveLocalDb();
   }
@@ -304,6 +321,10 @@ async function q(sql, p = []) {
     }
     return { rowCount: user ? 1 : 0, rows: [] };
   }
+  if (s.includes("from users where is_secretary=true")) {
+    const secs = [...localDb.users].filter(u => Boolean(u.is_secretary));
+    return { rows: secs };
+  }
   if (s.includes("from users order by name") ||
       s.includes("select id,name,email,center_id,is_admin from users order by name")) {
     const users = [...localDb.users]
@@ -315,14 +336,22 @@ async function q(sql, p = []) {
         center_id: u.center_id,
         center_ids: u.center_ids || (u.center_id ? [u.center_id] : []),
         school_ids: u.school_ids || [1, 2, 3],
-        is_admin: u.is_admin,
+        is_admin: Boolean(u.is_admin),
+        is_secretary: Boolean(u.is_secretary),
         phone: u.phone || "",
         whatsapp: u.whatsapp || u.phone || "",
         bio: u.bio || "",
+        email_verified: Boolean(u.email_verified),
+        first_login_completed: Boolean(u.first_login_completed),
         created_at: u.created_at,
         last_active_at: u.last_active_at
       }));
     return { rows: users };
+  }
+  if (s.includes("update users set is_secretary=$1 where id=$2")) {
+    const user = localDb.users.find(u => u.id === Number(p[1]));
+    if (user) { user.is_secretary = Boolean(p[0]); saveLocalDb(); }
+    return { rowCount: user ? 1 : 0, rows: [] };
   }
   if (s.includes("update users set center_id=$1 where id=$2")) {
     const user = localDb.users.find(u => u.id === Number(p[1]));
@@ -675,6 +704,120 @@ async function q(sql, p = []) {
     return { rows: [...localDb.reminders_sent] };
   }
 
+  // admin_fund_deposits queries
+  if (s.includes("from admin_fund_deposits")) {
+    if (!localDb.admin_fund_deposits) localDb.admin_fund_deposits = [];
+    const rows = [...localDb.admin_fund_deposits].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+    return { rows };
+  }
+  if (s.includes("insert into admin_fund_deposits")) {
+    if (!localDb.admin_fund_deposits) localDb.admin_fund_deposits = [];
+    const id = (localDb.admin_fund_deposits.reduce((max, d) => Math.max(max, d.id), 0) || 0) + 1;
+    const dep = {
+      id,
+      admin_id: Number(p[0]),
+      amount: parseFloat(p[1]) || 0,
+      source: p[2] || "Grant/Donation",
+      date: p[3] || new Date().toISOString().split("T")[0],
+      notes: p[4] || "",
+      created_at: new Date().toISOString()
+    };
+    localDb.admin_fund_deposits.push(dep);
+    saveLocalDb();
+    return { rows: [{ id }] };
+  }
+  if (s.includes("delete from admin_fund_deposits where id=$1")) {
+    if (!localDb.admin_fund_deposits) localDb.admin_fund_deposits = [];
+    localDb.admin_fund_deposits = localDb.admin_fund_deposits.filter(d => d.id !== Number(p[0]));
+    saveLocalDb();
+    return { rows: [] };
+  }
+
+  // financial_fund_allocations queries
+  if (s.includes("from financial_fund_allocations")) {
+    if (!localDb.financial_fund_allocations) localDb.financial_fund_allocations = [];
+    const rows = [...localDb.financial_fund_allocations].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+    return { rows };
+  }
+  if (s.includes("insert into financial_fund_allocations")) {
+    if (!localDb.financial_fund_allocations) localDb.financial_fund_allocations = [];
+    const id = (localDb.financial_fund_allocations.reduce((max, a) => Math.max(max, a.id), 0) || 0) + 1;
+    const alloc = {
+      id,
+      admin_id: Number(p[0]),
+      admin_name: p[1] || "Administrator",
+      secretary_id: p[2] ? Number(p[2]) : null,
+      secretary_name: p[3] || "Secretary",
+      amount: parseFloat(p[4]) || 0,
+      date: p[5] || new Date().toISOString().split("T")[0],
+      notes: p[6] || "",
+      status: p[7] || "confirmed",
+      created_at: new Date().toISOString()
+    };
+    localDb.financial_fund_allocations.push(alloc);
+    saveLocalDb();
+    return { rows: [{ id }] };
+  }
+  if (s.includes("delete from financial_fund_allocations where id=$1")) {
+    if (!localDb.financial_fund_allocations) localDb.financial_fund_allocations = [];
+    localDb.financial_fund_allocations = localDb.financial_fund_allocations.filter(a => a.id !== Number(p[0]));
+    saveLocalDb();
+    return { rows: [] };
+  }
+
+  // financial_expenses queries
+  if (s.includes("from financial_expenses")) {
+    if (!localDb.financial_expenses) localDb.financial_expenses = [];
+    if (s.includes("where id=$1")) {
+      const exp = localDb.financial_expenses.find(e => e.id === Number(p[0]));
+      return { rows: exp ? [exp] : [] };
+    }
+    const rows = [...localDb.financial_expenses].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+    return { rows };
+  }
+  if (s.includes("insert into financial_expenses")) {
+    if (!localDb.financial_expenses) localDb.financial_expenses = [];
+    const id = (localDb.financial_expenses.reduce((max, e) => Math.max(max, e.id), 0) || 0) + 1;
+    const exp = {
+      id,
+      secretary_id: Number(p[0]),
+      secretary_name: p[1] || "Secretary",
+      category: p[2] || "Miscellaneous",
+      description: p[3] || "",
+      amount: parseFloat(p[4]) || 0,
+      date: p[5] || new Date().toISOString().split("T")[0],
+      receipt_url: p[6] || "",
+      notes: p[7] || "",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    localDb.financial_expenses.push(exp);
+    saveLocalDb();
+    return { rows: [{ id }] };
+  }
+  if (s.includes("update financial_expenses set category=$1")) {
+    if (!localDb.financial_expenses) localDb.financial_expenses = [];
+    const expId = Number(p[p.length - 1]);
+    const exp = localDb.financial_expenses.find(e => e.id === expId);
+    if (exp) {
+      exp.category = p[0] || exp.category;
+      exp.description = p[1] || exp.description;
+      exp.amount = parseFloat(p[2]) || exp.amount;
+      exp.date = p[3] || exp.date;
+      exp.receipt_url = p[4] || exp.receipt_url;
+      exp.notes = p[5] || exp.notes;
+      exp.updated_at = new Date().toISOString();
+      saveLocalDb();
+    }
+    return { rowCount: exp ? 1 : 0, rows: [] };
+  }
+  if (s.includes("delete from financial_expenses where id=$1")) {
+    if (!localDb.financial_expenses) localDb.financial_expenses = [];
+    localDb.financial_expenses = localDb.financial_expenses.filter(e => e.id !== Number(p[0]));
+    saveLocalDb();
+    return { rows: [] };
+  }
+
   return { rows: [] };
 }
 
@@ -762,6 +905,41 @@ async function setup() {
     await q(`alter table users add column if not exists last_active_at timestamptz default now();`).catch(() => {});
     await q(`alter table users add column if not exists email_verified boolean default false;`).catch(() => {});
     await q(`alter table users add column if not exists first_login_completed boolean default false;`).catch(() => {});
+    await q(`alter table users add column if not exists is_secretary boolean default false;`).catch(() => {});
+    await q(`create table if not exists admin_fund_deposits (
+      id serial primary key,
+      admin_id int references users on delete set null,
+      amount numeric(14,2) not null,
+      source text default 'Grant/Donation',
+      date date not null default current_date,
+      notes text,
+      created_at timestamptz default now()
+    );`).catch(() => {});
+    await q(`create table if not exists financial_fund_allocations (
+      id serial primary key,
+      admin_id int references users on delete set null,
+      admin_name text,
+      secretary_id int references users on delete set null,
+      secretary_name text,
+      amount numeric(14,2) not null,
+      date date not null default current_date,
+      notes text,
+      status text default 'confirmed',
+      created_at timestamptz default now()
+    );`).catch(() => {});
+    await q(`create table if not exists financial_expenses (
+      id serial primary key,
+      secretary_id int references users on delete set null,
+      secretary_name text,
+      category text not null,
+      description text not null,
+      amount numeric(14,2) not null,
+      date date not null default current_date,
+      receipt_url text,
+      notes text,
+      created_at timestamptz default now(),
+      updated_at timestamptz default now()
+    );`).catch(() => {});
     await q(`create table if not exists login_otps (
       email text primary key,
       otp_code text not null,
@@ -881,7 +1059,7 @@ async function auth(req, res, next) {
     if (!token) throw 0;
 
     const { id } = jwt.verify(token, SECRET);
-    const r = await q("select id,name,email,center_id,is_admin,phone,bio,created_at,last_active_at from users where id=$1", [id]);
+    const r = await q("select id,name,email,center_id,is_admin,is_secretary,phone,bio,created_at,last_active_at from users where id=$1", [id]);
     if (!r.rows[0]) throw 0;
     req.user = r.rows[0];
     req.token = token;
@@ -896,6 +1074,7 @@ async function auth(req, res, next) {
 }
 
 const admin = (req, res, next) => req.user.is_admin ? next() : res.status(403).json({ error: "Admins only" });
+const secretary = (req, res, next) => (req.user.is_secretary || req.user.is_admin) ? next() : res.status(403).json({ error: "Secretaries and Admins only" });
 
 function login(res, id) {
   // Remember user login for 1 year (365 days)
@@ -972,7 +1151,7 @@ app.post("/api/signup", wrap(async (req, res) => {
 
 app.post("/api/login", wrap(async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
-  const r = await q("select id,password_hash,name,is_admin,email,phone,whatsapp,email_verified,first_login_completed from users where email=$1", [email]);
+  const r = await q("select id,password_hash,name,is_admin,is_secretary,email,phone,whatsapp,email_verified,first_login_completed from users where email=$1", [email]);
   if (!r.rows[0] || !(await bcrypt.compare(String(req.body.password || ""), r.rows[0].password_hash))) {
     return res.status(400).json({ error: "Wrong email or password." });
   }
@@ -993,6 +1172,7 @@ app.post("/api/login", wrap(async (req, res) => {
         name: user.name,
         email: user.email,
         is_admin: user.is_admin,
+        is_secretary: Boolean(user.is_secretary),
         phone: user.phone,
         whatsapp: user.whatsapp
       }
@@ -1046,7 +1226,7 @@ app.post("/api/verify-login-otp", wrap(async (req, res) => {
 
   await q("delete from login_otps where email=$1", [email]);
 
-  const u = (await q("select id,name,email,center_id,is_admin,phone,whatsapp from users where email=$1", [email])).rows[0];
+  const u = (await q("select id,name,email,center_id,is_admin,is_secretary,phone,whatsapp from users where email=$1", [email])).rows[0];
   if (!u) return res.status(404).json({ error: "User account not found." });
 
   // Mark account as verified and first login completed so subsequent logins won't require OTP
@@ -1062,7 +1242,7 @@ app.post("/api/verify-login-otp", wrap(async (req, res) => {
   res.json({
     ok: true,
     token,
-    user: { id: u.id, name: u.name, email: u.email, is_admin: isAdmin, phone: u.phone, whatsapp: u.whatsapp }
+    user: { id: u.id, name: u.name, email: u.email, is_admin: isAdmin, is_secretary: Boolean(u.is_secretary), phone: u.phone, whatsapp: u.whatsapp }
   });
 }));
 
@@ -1103,7 +1283,7 @@ app.post("/api/switch-account", wrap(async (req, res) => {
   if (!token) return res.status(400).json({ error: "Missing account token" });
   try {
     const { id } = jwt.verify(token, SECRET);
-    const r = await q("select id,name,email,center_id,is_admin from users where id=$1", [id]);
+    const r = await q("select id,name,email,center_id,is_admin,is_secretary from users where id=$1", [id]);
     if (!r.rows[0]) return res.status(404).json({ error: "User not found" });
     const newToken = login(res, id);
     res.json({ ok: true, token: newToken, user: r.rows[0] });
@@ -1164,7 +1344,7 @@ app.get("/api/data", auth, wrap(async (req, res) => {
   }
 
   const rawUsers = u.is_admin
-    ? (await q("select id,name,email,center_id,is_admin,phone,bio,created_at,last_active_at,whatsapp from users order by name")).rows
+    ? (await q("select id,name,email,center_id,is_admin,is_secretary,phone,bio,created_at,last_active_at,whatsapp from users order by name")).rows
     : [];
 
   const allUserSchoolsRows = (await q("select user_id, school_id from user_schools")).rows;
@@ -1801,7 +1981,7 @@ app.put("/api/reminders/settings", auth, admin, wrap(async (req, res) => {
 /* ---- AI WhatsApp Reminders Autonomous Background Monitoring & Dispatch Engine ---- */
 async function runAutoRemindersDispatch() {
   try {
-    const allUsers = (await q("select id,name,email,phone,whatsapp,is_admin from users where is_admin=false order by name")).rows;
+    const allUsers = (await q("select id,name,email,phone,whatsapp,is_admin from users order by name")).rows;
     const allSchools = (await q("select * from schools order by name")).rows;
     const remindersSent = (await q("select * from reminders_sent")).rows;
     const customTemplates = (await q("select key, message from reminder_templates")).rows;
@@ -1816,7 +1996,6 @@ async function runAutoRemindersDispatch() {
     const logs = [];
 
     for (const user of allUsers) {
-      if (user.is_admin) continue;
       const userSchools = await getUserSchools(user, allSchools);
       if (!userSchools || !userSchools.length) continue;
 
@@ -1863,6 +2042,7 @@ async function runAutoRemindersDispatch() {
                 await recordReminderStatus(user.id, school.id, "1_day_before", sched.meetingDateStr, "SUCCESSFUL", null);
                 dispatchedCount++;
                 logs.push({ user: user.name, school: school.name, type: "1_day_before", status: "SUCCESSFUL" });
+                console.log(`⚡ [AI AUTO-DISPATCH INSTANT] 1_day_before sent for ${user.name} at ${school.name}`);
               } else {
                 await recordReminderStatus(user.id, school.id, "1_day_before", sched.meetingDateStr, "FAILED", res.error);
                 logs.push({ user: user.name, school: school.name, type: "1_day_before", status: "FAILED", error: res.error });
@@ -1906,6 +2086,7 @@ async function runAutoRemindersDispatch() {
                 await recordReminderStatus(user.id, school.id, "3_hours_before", sched.meetingDateStr, "SUCCESSFUL", null);
                 dispatchedCount++;
                 logs.push({ user: user.name, school: school.name, type: "3_hours_before", status: "SUCCESSFUL" });
+                console.log(`⚡ [AI AUTO-DISPATCH INSTANT] 3_hours_before sent for ${user.name} at ${school.name}`);
               } else {
                 await recordReminderStatus(user.id, school.id, "3_hours_before", sched.meetingDateStr, "FAILED", res.error);
                 logs.push({ user: user.name, school: school.name, type: "3_hours_before", status: "FAILED", error: res.error });
@@ -1922,9 +2103,176 @@ async function runAutoRemindersDispatch() {
   }
 }
 
-// Background scheduler runs every 60 seconds (1 minute)
-setInterval(runAutoRemindersDispatch, 60 * 1000);
-setTimeout(runAutoRemindersDispatch, 4000);
+// Background autonomous scheduler runs every 10 seconds for instant dispatch
+setInterval(runAutoRemindersDispatch, 10 * 1000);
+setTimeout(runAutoRemindersDispatch, 2000);
+
+/* ---- Financial Accounts & Secretary Portal Subsystem ---- */
+
+// GET /api/finances - Retrieve Financial Hub Overview
+app.get("/api/finances", auth, wrap(async (req, res) => {
+  const u = req.user;
+  // Access: Administrators and Secretaries only
+  if (!u.is_admin && !u.is_secretary) {
+    return res.status(403).json({ error: "Access denied. Only Secretaries and Administrators can view financial records." });
+  }
+
+  const deposits = (await q("select * from admin_fund_deposits order by date desc, id desc")).rows;
+  const allocations = (await q("select * from financial_fund_allocations order by date desc, id desc")).rows;
+  const expenses = (await q("select * from financial_expenses order by date desc, id desc")).rows;
+  const secretaries = (await q("select id, name, email from users where is_secretary=true order by name")).rows;
+
+  const totalAdminDeposits = deposits.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+  const totalHandedOver = allocations.reduce((sum, a) => sum + (parseFloat(a.amount) || 0), 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+  // 1. Administrators Account Balance (how much money is left with the administrator)
+  const adminAccountBalance = totalAdminDeposits - totalHandedOver;
+
+  // 2. Secretary Account:
+  // - Current Account (how much money is with the secretary at hand)
+  const secretaryCurrentBalance = totalHandedOver - totalExpenses;
+  // - Expense Account (how much money has been spent and what the money was used for)
+  const secretaryExpenseTotal = totalExpenses;
+
+  res.json({
+    ok: true,
+    summary: {
+      total_admin_deposits: totalAdminDeposits,
+      total_handed_over: totalHandedOver,
+      admin_account_balance: adminAccountBalance,
+      secretary_total_received: totalHandedOver,
+      secretary_current_balance: secretaryCurrentBalance,
+      secretary_expense_total: secretaryExpenseTotal
+    },
+    deposits,
+    allocations,
+    expenses,
+    secretaries,
+    can_edit_expenses: Boolean(u.is_secretary), // Only secretary can edit expenses
+    can_manage_allocations: Boolean(u.is_admin) // Only admin hands over cash to secretary
+  });
+}));
+
+// POST /api/finances/admin-deposit - Add cash reserve / inflow to Admin's Account
+app.post("/api/finances/admin-deposit", auth, admin, wrap(async (req, res) => {
+  const amount = parseFloat(req.body.amount);
+  const source = String(req.body.source || "Grant / Donation").trim();
+  const date = req.body.date || new Date().toISOString().split("T")[0];
+  const notes = String(req.body.notes || "").trim();
+
+  if (isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ error: "Please provide a valid deposit amount greater than 0." });
+  }
+
+  await q("insert into admin_fund_deposits(admin_id, amount, source, date, notes) values($1, $2, $3, $4, $5)",
+    [req.user.id, amount, source, date, notes]);
+
+  res.json({ ok: true });
+}));
+
+// POST /api/finances/handover - Administrator hands over cash to Secretary
+app.post("/api/finances/handover", auth, admin, wrap(async (req, res) => {
+  const amount = parseFloat(req.body.amount);
+  const secId = req.body.secretary_id ? Number(req.body.secretary_id) : null;
+  const date = req.body.date || new Date().toISOString().split("T")[0];
+  const notes = String(req.body.notes || "").trim();
+
+  if (isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ error: "Please enter a valid amount of cash to hand over." });
+  }
+
+  // Look up secretary name
+  let secName = "Appointed Secretary";
+  if (secId) {
+    const secRow = (await q("select name from users where id=$1", [secId])).rows[0];
+    if (secRow) secName = secRow.name;
+  } else {
+    const defaultSec = (await q("select id, name from users where is_secretary=true limit 1")).rows[0];
+    if (defaultSec) {
+      secName = defaultSec.name;
+    }
+  }
+
+  await q("insert into financial_fund_allocations(admin_id, admin_name, secretary_id, secretary_name, amount, date, notes, status) values($1, $2, $3, $4, $5, $6, $7, $8)",
+    [req.user.id, req.user.name, secId, secName, amount, date, notes, "confirmed"]);
+
+  res.json({ ok: true, amount, secretary_name: secName });
+}));
+
+// POST /api/finances/expenses - Secretary logs a new expense
+app.post("/api/finances/expenses", auth, wrap(async (req, res) => {
+  // RULE: The administrator would not have access to edit it but to view it
+  if (!req.user.is_secretary) {
+    return res.status(403).json({ error: "Only the Secretary has authorization to record expenses. Administrators have view-only access." });
+  }
+
+  const category = String(req.body.category || "Miscellaneous").trim();
+  const description = String(req.body.description || "").trim();
+  const amount = parseFloat(req.body.amount);
+  const date = req.body.date || new Date().toISOString().split("T")[0];
+  const receipt_url = req.body.receipt_url || "";
+  const notes = String(req.body.notes || "").trim();
+
+  if (!description) {
+    return res.status(400).json({ error: "Please describe what the money was used for." });
+  }
+  if (isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ error: "Please enter a valid expense amount." });
+  }
+
+  await q("insert into financial_expenses(secretary_id, secretary_name, category, description, amount, date, receipt_url, notes) values($1, $2, $3, $4, $5, $6, $7, $8)",
+    [req.user.id, req.user.name, category, description, amount, date, receipt_url, notes]);
+
+  res.json({ ok: true });
+}));
+
+// PUT /api/finances/expenses/:id - Secretary edits an existing expense
+app.put("/api/finances/expenses/:id", auth, wrap(async (req, res) => {
+  // RULE: The administrator would not have access to edit it but to view it
+  if (!req.user.is_secretary) {
+    return res.status(403).json({ error: "Only the Secretary has authorization to modify expenses. Administrators have view-only access." });
+  }
+
+  const expId = Number(req.params.id);
+  const category = String(req.body.category || "Miscellaneous").trim();
+  const description = String(req.body.description || "").trim();
+  const amount = parseFloat(req.body.amount);
+  const date = req.body.date || new Date().toISOString().split("T")[0];
+  const receipt_url = req.body.receipt_url || "";
+  const notes = String(req.body.notes || "").trim();
+
+  if (!description) {
+    return res.status(400).json({ error: "Please describe what the money was used for." });
+  }
+  if (isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ error: "Please enter a valid expense amount." });
+  }
+
+  await q("update financial_expenses set category=$1, description=$2, amount=$3, date=$4, receipt_url=$5, notes=$6, updated_at=now() where id=$7",
+    [category, description, amount, date, receipt_url, notes, expId]);
+
+  res.json({ ok: true });
+}));
+
+// DELETE /api/finances/expenses/:id - Secretary deletes an expense
+app.delete("/api/finances/expenses/:id", auth, wrap(async (req, res) => {
+  // RULE: The administrator would not have access to edit it but to view it
+  if (!req.user.is_secretary) {
+    return res.status(403).json({ error: "Only the Secretary has authorization to delete expenses. Administrators have view-only access." });
+  }
+
+  await q("delete from financial_expenses where id=$1", [Number(req.params.id)]);
+  res.json({ ok: true });
+}));
+
+// PUT /api/users/:id/secretary - Administrator grants or revokes Secretary role
+app.put("/api/users/:id/secretary", auth, admin, wrap(async (req, res) => {
+  const targetId = Number(req.params.id);
+  const isSec = Boolean(req.body.is_secretary);
+  await q("update users set is_secretary=$1 where id=$2", [isSec, targetId]);
+  res.json({ ok: true, is_secretary: isSec });
+}));
 
 /* ---- Schools Management ---- */
 app.post("/api/schools", auth, admin, wrap(async (req, res) => {
